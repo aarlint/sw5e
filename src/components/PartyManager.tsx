@@ -16,7 +16,6 @@ const PartyManager: React.FC<PartyManagerProps> = ({ currentCharacter, onCharact
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
-  const [connectionStatus, setConnectionStatus] = useState<'connected' | 'connecting' | 'disconnected'>('disconnected');
 
   const handleJoinParty = useCallback(async (code?: string, showMessage = true) => {
     const partyCode = code || joinCode;
