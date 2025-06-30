@@ -1,0 +1,707 @@
+.character-sheet {
+  width: 100%;
+  max-width: 1400px;
+  margin: 0 auto;
+  padding: 20px;
+  min-height: 100vh;
+}
+
+.sheet-container {
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: 15px;
+  padding: 30px;
+  backdrop-filter: blur(10px);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+  display: flex;
+  flex-direction: column;
+  gap: 30px;
+}
+
+/* Header Section */
+.header-section {
+  padding-bottom: 20px;
+  border-bottom: 2px solid rgba(255, 215, 0, 0.3);
+}
+
+.header-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 20px;
+}
+
+.header-field {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.header-field label {
+  font-weight: 600;
+  color: #ffd700;
+  font-size: 0.9rem;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+}
+
+.header-field input {
+  padding: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.1);
+  color: #e8e8e8;
+  font-size: 1rem;
+  transition: all 0.3s ease;
+}
+
+.header-field input:focus {
+  outline: none;
+  border-color: #ffd700;
+  box-shadow: 0 0 15px rgba(255, 215, 0, 0.3);
+  background: rgba(255, 255, 255, 0.15);
+}
+
+.name-input {
+  font-size: 1.2rem !important;
+  font-weight: 600;
+}
+
+/* Main Content - Better Grid Strategy */
+.main-content {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 25px;
+}
+
+@media (min-width: 768px) {
+  .main-content {
+    grid-template-columns: repeat(2, 1fr);
+    grid-template-areas: 
+      "ability combat"
+      "skills death"
+      "resources proficiencies"
+      "weapons weapons";
+    gap: 25px;
+  }
+  
+  .ability-scores {
+    grid-area: ability;
+  }
+  
+  .combat {
+    grid-area: combat;
+  }
+  
+  .skills {
+    grid-area: skills;
+  }
+  
+  .death-saves {
+    grid-area: death;
+  }
+  
+  .resources {
+    grid-area: resources;
+  }
+  
+  .proficiencies {
+    grid-area: proficiencies;
+  }
+  
+  .weapons {
+    grid-area: weapons;
+  }
+}
+
+/* Section Cards */
+section {
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: 12px;
+  padding: 20px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  display: flex;
+  flex-direction: column;
+  gap: 15px;
+  min-height: 200px;
+}
+
+section.weapons {
+  min-height: 300px;
+}
+
+section h2 {
+  color: #ffd700;
+  font-size: 1.3rem;
+  margin: 0;
+  text-align: center;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  border-bottom: 1px solid rgba(255, 215, 0, 0.3);
+  padding-bottom: 8px;
+}
+
+/* Ability Scores */
+.ability-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 15px;
+}
+
+.ability-score {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  padding: 15px;
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  transition: all 0.3s ease;
+}
+
+.ability-score:hover {
+  background: rgba(255, 255, 255, 0.1);
+  border-color: rgba(255, 215, 0, 0.3);
+}
+
+.ability-score label {
+  font-weight: 600;
+  color: #ffd700;
+  font-size: 0.9rem;
+  text-align: center;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+}
+
+.ability-input {
+  width: 60px;
+  height: 40px;
+  text-align: center;
+  font-size: 1.2rem;
+  font-weight: bold;
+  border: 2px solid rgba(255, 255, 255, 0.3);
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.1);
+  color: #e8e8e8;
+}
+
+.ability-input:focus {
+  outline: none;
+  border-color: #ffd700;
+  box-shadow: 0 0 15px rgba(255, 215, 0, 0.3);
+}
+
+.modifier {
+  font-size: 1rem;
+  font-weight: bold;
+  color: #ffd700;
+  background: rgba(255, 215, 0, 0.1);
+  padding: 4px 8px;
+  border-radius: 4px;
+  border: 1px solid rgba(255, 215, 0, 0.3);
+}
+
+/* Skills */
+.skills-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.skill-item {
+  display: grid;
+  grid-template-columns: auto 1fr auto auto;
+  align-items: center;
+  gap: 12px;
+  padding: 10px;
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: 6px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  transition: all 0.3s ease;
+}
+
+.skill-item:hover {
+  background: rgba(255, 255, 255, 0.1);
+  border-color: rgba(255, 215, 0, 0.3);
+}
+
+.skill-item label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-weight: 500;
+  cursor: pointer;
+  font-size: 0.9rem;
+}
+
+.skill-item input[type="checkbox"] {
+  width: 16px;
+  height: 16px;
+  accent-color: #ffd700;
+}
+
+.skill-item input[type="number"] {
+  width: 60px;
+  padding: 6px;
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  border-radius: 4px;
+  background: rgba(255, 255, 255, 0.1);
+  color: #e8e8e8;
+  text-align: center;
+}
+
+.roll-btn {
+  background: linear-gradient(45deg, #3742fa, #5352ed);
+  color: white;
+  border: none;
+  padding: 6px 12px;
+  border-radius: 4px;
+  font-weight: 600;
+  font-size: 0.8rem;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  white-space: nowrap;
+}
+
+.roll-btn:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 15px rgba(55, 66, 250, 0.4);
+}
+
+/* Proficiencies */
+.proficiency-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 15px;
+}
+
+.proficiency-field {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.proficiency-field label {
+  font-weight: 600;
+  color: #ffd700;
+  font-size: 0.9rem;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+}
+
+.proficiency-field textarea {
+  min-height: 60px;
+  padding: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.1);
+  color: #e8e8e8;
+  font-size: 0.9rem;
+  resize: vertical;
+  font-family: inherit;
+}
+
+.proficiency-field textarea:focus {
+  outline: none;
+  border-color: #ffd700;
+  box-shadow: 0 0 15px rgba(255, 215, 0, 0.3);
+}
+
+/* Combat */
+.combat-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 15px;
+}
+
+.combat-field {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.combat-field label {
+  font-weight: 600;
+  color: #ffd700;
+  font-size: 0.9rem;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+}
+
+.combat-field input {
+  padding: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.1);
+  color: #e8e8e8;
+  font-size: 1rem;
+}
+
+.combat-field input:focus {
+  outline: none;
+  border-color: #ffd700;
+  box-shadow: 0 0 15px rgba(255, 215, 0, 0.3);
+}
+
+.hp-inputs {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+}
+
+.hp-inputs input {
+  text-align: center;
+}
+
+/* Death Saves */
+.death-saves-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  justify-content: center;
+  flex: 1;
+}
+
+.death-save-section {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+}
+
+.death-save-section label {
+  font-weight: 600;
+  color: #ffd700;
+  font-size: 0.9rem;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+}
+
+.death-save-buttons {
+  display: flex;
+  gap: 8px;
+}
+
+.death-save-btn {
+  width: 30px;
+  height: 30px;
+  border: 2px solid rgba(255, 255, 255, 0.3);
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.1);
+  color: rgba(255, 255, 255, 0.6);
+  cursor: pointer;
+  transition: all 0.3s ease;
+  font-weight: bold;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.death-save-btn:hover {
+  border-color: #ffd700;
+  background: rgba(255, 215, 0, 0.1);
+}
+
+.death-save-btn.active {
+  background: #ffd700;
+  color: #1a1a2e;
+  border-color: #ffd700;
+}
+
+/* Weapons */
+.add-weapon-btn {
+  background: linear-gradient(45deg, #ffd700, #ffed4e);
+  color: #1a1a2e;
+  border: none;
+  padding: 10px 20px;
+  border-radius: 6px;
+  font-weight: 600;
+  font-size: 0.9rem;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  margin-bottom: 15px;
+  width: 100%;
+}
+
+.add-weapon-btn:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(255, 215, 0, 0.4);
+}
+
+.weapons-list {
+  display: flex;
+  flex-direction: column;
+  gap: 15px;
+}
+
+.weapon-item {
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: 8px;
+  padding: 15px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.weapon-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 12px;
+  gap: 10px;
+}
+
+.weapon-header input {
+  flex: 1;
+  padding: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  border-radius: 4px;
+  background: rgba(255, 255, 255, 0.1);
+  color: #e8e8e8;
+  font-size: 0.9rem;
+}
+
+.remove-btn {
+  background: #ff4757;
+  color: white;
+  border: none;
+  width: 25px;
+  height: 25px;
+  border-radius: 50%;
+  cursor: pointer;
+  font-size: 1rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.3s ease;
+  flex-shrink: 0;
+}
+
+.remove-btn:hover {
+  background: #ff3742;
+  transform: scale(1.1);
+}
+
+.weapon-stats {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.weapon-stats input {
+  padding: 6px;
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  border-radius: 4px;
+  background: rgba(255, 255, 255, 0.1);
+  color: #e8e8e8;
+  font-size: 0.8rem;
+}
+
+.weapon-actions {
+  display: flex;
+  gap: 10px;
+  justify-content: center;
+  flex-wrap: wrap;
+}
+
+.weapon-actions .roll-btn {
+  flex: 1;
+  min-width: 120px;
+  max-width: 200px;
+}
+
+/* Resources */
+.resources-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 15px;
+  justify-content: center;
+  flex: 1;
+}
+
+.resource-field {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.resource-field label {
+  font-weight: 600;
+  color: #ffd700;
+  font-size: 0.9rem;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+}
+
+.resource-field input {
+  padding: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.1);
+  color: #e8e8e8;
+  font-size: 1rem;
+}
+
+.resource-field input:focus {
+  outline: none;
+  border-color: #ffd700;
+  box-shadow: 0 0 15px rgba(255, 215, 0, 0.3);
+}
+
+/* Bottom Sections */
+.bottom-sections {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 25px;
+}
+
+@media (min-width: 768px) {
+  .bottom-sections {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+.features,
+.equipment,
+.notes {
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: 12px;
+  padding: 20px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.features textarea,
+.equipment textarea,
+.notes textarea {
+  width: 100%;
+  min-height: 100px;
+  padding: 15px;
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.1);
+  color: #e8e8e8;
+  font-size: 1rem;
+  resize: vertical;
+  font-family: inherit;
+  box-sizing: border-box;
+}
+
+.features textarea:focus,
+.equipment textarea:focus,
+.notes textarea:focus {
+  outline: none;
+  border-color: #ffd700;
+  box-shadow: 0 0 15px rgba(255, 215, 0, 0.3);
+}
+
+/* Personality */
+.personality {
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: 12px;
+  padding: 20px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.personality-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.personality-field {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.personality-field label {
+  font-weight: 600;
+  color: #ffd700;
+  font-size: 0.9rem;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+}
+
+.personality-field textarea {
+  min-height: 80px;
+  padding: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.1);
+  color: #e8e8e8;
+  font-size: 0.9rem;
+  resize: vertical;
+  font-family: inherit;
+}
+
+.personality-field textarea:focus {
+  outline: none;
+  border-color: #ffd700;
+  box-shadow: 0 0 15px rgba(255, 215, 0, 0.3);
+}
+
+/* Mobile Responsive */
+@media (max-width: 767px) {
+  .character-sheet {
+    padding: 10px;
+  }
+  
+  .sheet-container {
+    padding: 20px;
+  }
+  
+  .header-grid {
+    grid-template-columns: 1fr;
+  }
+  
+  .ability-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+  
+  .skills-grid {
+    grid-template-columns: 1fr;
+  }
+  
+  .skill-item {
+    grid-template-columns: 1fr;
+    gap: 8px;
+  }
+  
+  .weapon-stats {
+    grid-template-columns: 1fr;
+  }
+  
+  .weapon-actions {
+    flex-direction: column;
+  }
+  
+  .weapon-actions .roll-btn {
+    max-width: none;
+  }
+  
+  .hp-inputs {
+    grid-template-columns: 1fr;
+  }
+  
+  .death-saves-grid {
+    flex-direction: column;
+    gap: 15px;
+  }
+}
+
+@media (max-width: 480px) {
+  .sheet-container {
+    padding: 15px;
+  }
+  
+  section {
+    padding: 15px;
+  }
+  
+  section h2 {
+    font-size: 1.1rem;
+  }
+  
+  .ability-grid {
+    grid-template-columns: 1fr;
+  }
+} 
