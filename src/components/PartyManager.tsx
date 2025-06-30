@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import PartyMemberCard from './PartyMemberCard';
 import partyService, { PartyData, CharacterData } from '../services/partyService';
 import './PartyManager.css';
@@ -17,15 +17,49 @@ const PartyManager: React.FC<PartyManagerProps> = ({ currentCharacter, onCharact
   const [error, setError] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
 
+  const handleJoinParty = useCallback(async (code?: string, showMessage = true) => {
+    const partyCode = code || joinCode;
+    
+    if (!partyCode) {
+      setError('Please enter a party code.');
+      return;
+    }
+
+    if (!currentCharacter.id || !currentCharacter.name) {
+      setError('Please ensure your character has a name and is saved before joining a party.');
+      return;
+    }
+
+    setLoading(true);
+    clearMessages();
+
+    try {
+      const result = await partyService.joinParty(partyCode, currentCharacter);
+      
+      if (result.success) {
+        localStorage.setItem('currentPartyCode', partyCode);
+        if (showMessage) {
+          setSuccessMessage(`Successfully joined party ${partyCode}!`);
+        }
+        setIsInParty(true);
+        setShowJoinForm(false);
+        setJoinCode('');
+      } else {
+        setError(result.error || 'Failed to join party');
+      }
+    } catch (error) {
+      setError('Failed to join party. Please check the code and try again.');
+    } finally {
+      setLoading(false);
+    }
+  }, [joinCode, currentCharacter]);
+
   useEffect(() => {
-    // Listen for party updates
     const handlePartyUpdate = (data: PartyData) => {
       setPartyData(data);
-      setIsInParty(true);
     };
 
     partyService.on('partyUpdate', handlePartyUpdate);
-    partyService.startHeartbeat();
 
     // Check if already in a party from localStorage
     const savedPartyCode = localStorage.getItem('currentPartyCode');
@@ -36,7 +70,7 @@ const PartyManager: React.FC<PartyManagerProps> = ({ currentCharacter, onCharact
     return () => {
       partyService.off('partyUpdate', handlePartyUpdate);
     };
-  }, [currentCharacter.id]);
+  }, [currentCharacter.id, handleJoinParty]);
 
   // Update party when character changes
   useEffect(() => {
@@ -71,43 +105,6 @@ const PartyManager: React.FC<PartyManagerProps> = ({ currentCharacter, onCharact
       }
     } catch (error) {
       setError('Failed to create party. Please try again.');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleJoinParty = async (code?: string, showMessage = true) => {
-    const partyCode = code || joinCode;
-    
-    if (!partyCode) {
-      setError('Please enter a party code.');
-      return;
-    }
-
-    if (!currentCharacter.id || !currentCharacter.name) {
-      setError('Please ensure your character has a name and is saved before joining a party.');
-      return;
-    }
-
-    setLoading(true);
-    clearMessages();
-
-    try {
-      const result = await partyService.joinParty(partyCode, currentCharacter);
-      
-      if (result.success) {
-        localStorage.setItem('currentPartyCode', partyCode);
-        if (showMessage) {
-          setSuccessMessage(`Successfully joined party ${partyCode}!`);
-        }
-        setIsInParty(true);
-        setShowJoinForm(false);
-        setJoinCode('');
-      } else {
-        setError(result.error || 'Failed to join party');
-      }
-    } catch (error) {
-      setError('Failed to join party. Please check the code and try again.');
     } finally {
       setLoading(false);
     }

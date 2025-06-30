@@ -261,5 +261,6 @@ class PartyService {
   }
 }
 
-export default new PartyService();
+const partyService = new PartyService();
+export default partyService;
 export type { CharacterData, PartyMember, PartyData }; 
