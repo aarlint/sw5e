@@ -100,6 +100,55 @@ interface Skill {
   bonus: number;
 }
 
+const getHitDiceType = (className: string): string => {
+  const classLower = className.toLowerCase();
+  // Star Wars 5e hit dice by class
+  if (classLower.includes('guardian') || classLower.includes('sentinel') || classLower.includes('consular')) {
+    return 'd8'; // Force classes
+  } else if (classLower.includes('fighter') || classLower.includes('scout') || classLower.includes('scoundrel')) {
+    return 'd10'; // Combat classes
+  } else if (classLower.includes('engineer') || classLower.includes('scholar')) {
+    return 'd6'; // Support classes
+  } else if (classLower.includes('berserker') || classLower.includes('monk')) {
+    return 'd12'; // Specialized combat classes
+  } else {
+    return 'd8'; // Default for unknown classes
+  }
+};
+
+const calculateHitDice = (level: number, className: string): string => {
+  const hitDiceType = getHitDiceType(className);
+  return `${level}${hitDiceType}`;
+};
+
+const calculateMaxHP = (level: number, className: string, constitution: number): number => {
+  const hitDiceType = getHitDiceType(className);
+  const conMod = Math.floor((constitution - 10) / 2);
+  
+  // Star Wars 5e HP calculation
+  // Level 1: Maximum of hit die + constitution modifier
+  let maxHP = 0;
+  if (hitDiceType === 'd6') maxHP = 6;
+  else if (hitDiceType === 'd8') maxHP = 8;
+  else if (hitDiceType === 'd10') maxHP = 10;
+  else if (hitDiceType === 'd12') maxHP = 12;
+  
+  maxHP += conMod;
+  
+  // Levels 2+: Roll or take average (we'll use average for consistency)
+  for (let i = 2; i <= level; i++) {
+    let averageHP = 0;
+    if (hitDiceType === 'd6') averageHP = 4; // (1+6)/2 = 3.5, rounded up
+    else if (hitDiceType === 'd8') averageHP = 5; // (1+8)/2 = 4.5, rounded up
+    else if (hitDiceType === 'd10') averageHP = 6; // (1+10)/2 = 5.5, rounded up
+    else if (hitDiceType === 'd12') averageHP = 7; // (1+12)/2 = 6.5, rounded up
+    
+    maxHP += averageHP + conMod;
+  }
+  
+  return Math.max(1, maxHP); // Minimum 1 HP
+};
+
 const CharacterSheet: React.FC = () => {
   const [character, setCharacter] = useState<CharacterData>({
     id: '',
@@ -120,12 +169,12 @@ const CharacterSheet: React.FC = () => {
     initiative: 0,
     speed: 30,
     hitPoints: {
-      maximum: 0,
-      current: 0,
+      maximum: calculateMaxHP(1, '', 10),
+      current: calculateMaxHP(1, '', 10),
       temporary: 0
     },
-    hitDice: '1d8',
-    hitDiceTotal: '1d8',
+    hitDice: calculateHitDice(1, ''),
+    hitDiceTotal: calculateHitDice(1, ''),
     deathSaves: {
       successes: 0,
       failures: 0
@@ -192,6 +241,30 @@ const CharacterSheet: React.FC = () => {
     result: null as number | null
   });
 
+  // Damage popup state
+  const [damagePopup, setDamagePopup] = useState({
+    isOpen: false,
+    damageAmount: 0
+  });
+
+  // Quick number selector popup state
+  const [numberSelector, setNumberSelector] = useState({
+    isOpen: false,
+    x: 0,
+    y: 0,
+    onSelect: (value: number) => {},
+    currentValue: 0
+  });
+
+  // Die selector popup state
+  const [dieSelector, setDieSelector] = useState({
+    isOpen: false,
+    x: 0,
+    y: 0,
+    onSelect: (dieType: string) => {},
+    currentValue: 'd8'
+  });
+
   // Load character data from localStorage on component mount
   useEffect(() => {
     const savedCharacter = localStorage.getItem('starWarsCharacter');
@@ -218,12 +291,12 @@ const CharacterSheet: React.FC = () => {
         initiative: loadedCharacter.initiative || 0,
         speed: loadedCharacter.speed || 30,
         hitPoints: {
-          maximum: loadedCharacter.hitPoints?.maximum || 0,
-          current: loadedCharacter.hitPoints?.current || 0,
+          maximum: loadedCharacter.hitPoints?.maximum || calculateMaxHP(loadedCharacter.level || 1, loadedCharacter.class || '', loadedCharacter.constitution || 10),
+          current: loadedCharacter.hitPoints?.current || calculateMaxHP(loadedCharacter.level || 1, loadedCharacter.class || '', loadedCharacter.constitution || 10),
           temporary: loadedCharacter.hitPoints?.temporary || 0
         },
-        hitDice: loadedCharacter.hitDice || '1d8',
-        hitDiceTotal: loadedCharacter.hitDiceTotal || '1d8',
+        hitDice: calculateHitDice(loadedCharacter.level || 1, loadedCharacter.class || ''),
+        hitDiceTotal: calculateHitDice(loadedCharacter.level || 1, loadedCharacter.class || ''),
         deathSaves: {
           successes: loadedCharacter.deathSaves?.successes || 0,
           failures: loadedCharacter.deathSaves?.failures || 0
@@ -309,6 +382,7 @@ const CharacterSheet: React.FC = () => {
   const rollSkillCheck = (skill: Skill) => {
     const abilityScore = character[skill.ability as keyof CharacterData] as number;
     const abilityMod = getAbilityModifier(abilityScore);
+    // Star Wars 5e proficiency bonus: 2 at level 1, +1 every 4 levels
     const proficiencyBonus = skill.proficient ? Math.floor((character.level - 1) / 4) + 2 : 0;
     const skillBonus = skill.bonus;
     
@@ -346,20 +420,41 @@ const CharacterSheet: React.FC = () => {
   };
 
   const handleRollComplete = (result: number) => {
-    // The popup will show the result and stay open for the user to see
-    // User can manually close it when they're done
+    // The popup handles rolling automatically, so we don't need to do anything here
+    // The result is already displayed in the popup
   };
 
   const closeDicePopup = () => {
     setDicePopup(prev => ({ ...prev, isOpen: false }));
   };
 
-  const updateCharacter = (updates: Partial<CharacterData>) => {
-    setCharacter(prev => ({ ...prev, ...updates }));
-  };
-
   const updateAbilityScore = (ability: keyof CharacterData, value: number) => {
     setCharacter(prev => ({ ...prev, [ability]: value }));
+  };
+
+  const updateCharacter = (updates: Partial<CharacterData>) => {
+    setCharacter(prev => {
+      const updated = { ...prev, ...updates };
+      
+      // If level or class changed, update hit dice
+      if (updates.level !== undefined || updates.class !== undefined) {
+        const newHitDice = calculateHitDice(updated.level, updated.class);
+        updated.hitDice = newHitDice;
+        updated.hitDiceTotal = newHitDice; // Reset to full when level/class changes
+      }
+      
+      // If level, class, or constitution changed, recalculate max HP
+      if (updates.level !== undefined || updates.class !== undefined || updates.constitution !== undefined) {
+        const newMaxHP = calculateMaxHP(updated.level, updated.class, updated.constitution);
+        updated.hitPoints = {
+          ...updated.hitPoints,
+          maximum: newMaxHP,
+          current: Math.min(updated.hitPoints.current, newMaxHP) // Don't let current exceed new max
+        };
+      }
+      
+      return updated;
+    });
   };
 
   const addWeapon = () => {
@@ -449,8 +544,8 @@ const CharacterSheet: React.FC = () => {
             current: prev.hitPoints.maximum 
           },
           hitDiceTotal: newHitDiceTotal,
-          forcePoints: 0, // Reset force points
-          techPoints: 0,  // Reset tech points
+          forcePoints: 0, // Reset force points (Star Wars 5e)
+          techPoints: 0,  // Reset tech points (Star Wars 5e)
           exhaustion: Math.max(0, prev.exhaustion - 1) // Reduce exhaustion by 1, minimum 0
         };
       });
@@ -555,7 +650,90 @@ const CharacterSheet: React.FC = () => {
   };
 
   const isFighterClass = () => {
-    return character.class.toLowerCase().includes('fighter');
+    // Star Wars 5e classes that might have Second Wind or similar abilities
+    const classLower = character.class.toLowerCase();
+    return classLower.includes('fighter') || classLower.includes('guardian') || classLower.includes('scout');
+  };
+
+  const getHealthPercentage = () => {
+    if (character.hitPoints.maximum === 0) return 0;
+    return (character.hitPoints.current / character.hitPoints.maximum) * 100;
+  };
+
+  const getHealthBarColor = (percentage: number) => {
+    if (percentage > 50) return '#4a7c4a'; // Green
+    if (percentage > 25) return '#7c7c4a'; // Yellow
+    return '#7c4a4a'; // Red
+  };
+
+  const handleTakeDamage = () => {
+    setDamagePopup({
+      isOpen: true,
+      damageAmount: 0
+    });
+  };
+
+  const applyDamage = () => {
+    if (damagePopup.damageAmount > 0) {
+      setCharacter(prev => ({
+        ...prev,
+        hitPoints: {
+          ...prev.hitPoints,
+          current: Math.max(0, prev.hitPoints.current - damagePopup.damageAmount)
+        }
+      }));
+    }
+    setDamagePopup({
+      isOpen: false,
+      damageAmount: 0
+    });
+  };
+
+  const closeDamagePopup = () => {
+    setDamagePopup({
+      isOpen: false,
+      damageAmount: 0
+    });
+  };
+
+  const openNumberSelector = (event: React.MouseEvent, currentValue: number, onSelect: (value: number) => void) => {
+    const rect = event.currentTarget.getBoundingClientRect();
+    setNumberSelector({
+      isOpen: true,
+      x: rect.left + rect.width / 2,
+      y: rect.top + rect.height / 2,
+      onSelect,
+      currentValue
+    });
+  };
+
+  const closeNumberSelector = () => {
+    setNumberSelector(prev => ({ ...prev, isOpen: false }));
+  };
+
+  const handleNumberSelect = (value: number) => {
+    numberSelector.onSelect(value);
+    closeNumberSelector();
+  };
+
+  const openDieSelector = (event: React.MouseEvent, currentValue: string, onSelect: (dieType: string) => void) => {
+    const rect = event.currentTarget.getBoundingClientRect();
+    setDieSelector({
+      isOpen: true,
+      x: rect.left + rect.width / 2,
+      y: rect.top + rect.height / 2,
+      onSelect,
+      currentValue
+    });
+  };
+
+  const closeDieSelector = () => {
+    setDieSelector(prev => ({ ...prev, isOpen: false }));
+  };
+
+  const handleDieSelect = (dieType: string) => {
+    dieSelector.onSelect(dieType);
+    closeDieSelector();
   };
 
   return (
@@ -583,6 +761,15 @@ const CharacterSheet: React.FC = () => {
                   const level = parseInt(parts[parts.length - 1]) || 1;
                   const className = parts.slice(0, -1).join(' ');
                   updateCharacter({ class: className, level });
+                }}
+                onClick={(e) => {
+                  const target = e.target as HTMLInputElement;
+                  const parts = target.value.split(' ');
+                  const currentLevel = parseInt(parts[parts.length - 1]) || 1;
+                  openNumberSelector(e, currentLevel, (value) => {
+                    const className = parts.slice(0, -1).join(' ');
+                    updateCharacter({ class: className, level: value });
+                  });
                 }}
               />
             </div>
@@ -616,6 +803,7 @@ const CharacterSheet: React.FC = () => {
                 type="number"
                 value={character.experiencePoints}
                 onChange={(e) => updateCharacter({ experiencePoints: parseInt(e.target.value) || 0 })}
+                onClick={(e) => openNumberSelector(e, character.experiencePoints, (value) => updateCharacter({ experiencePoints: value }))}
               />
             </div>
           </div>
@@ -641,6 +829,7 @@ const CharacterSheet: React.FC = () => {
                     type="number"
                     value={character[key as keyof CharacterData] as number}
                     onChange={(e) => updateAbilityScore(key as keyof CharacterData, parseInt(e.target.value) || 10)}
+                    onClick={(e) => openNumberSelector(e, character[key as keyof CharacterData] as number, (value) => updateAbilityScore(key as keyof CharacterData, value))}
                     className="ability-input"
                   />
                   <span className="modifier">
@@ -679,6 +868,13 @@ const CharacterSheet: React.FC = () => {
                       updatedSkills[index].bonus = parseInt(e.target.value) || 0;
                       updateCharacter({ skills: updatedSkills });
                     }}
+                    onClick={(e) => {
+                      const updatedSkills = [...character.skills];
+                      openNumberSelector(e, skill.bonus, (value) => {
+                        updatedSkills[index].bonus = value;
+                        updateCharacter({ skills: updatedSkills });
+                      });
+                    }}
                   />
                   <button 
                     onClick={() => rollSkillCheck(skill)}
@@ -702,6 +898,7 @@ const CharacterSheet: React.FC = () => {
                   type="number"
                   value={character.armorClass}
                   onChange={(e) => updateCharacter({ armorClass: parseInt(e.target.value) || 10 })}
+                  onClick={(e) => openNumberSelector(e, character.armorClass, (value) => updateCharacter({ armorClass: value }))}
                 />
               </div>
               <div className="combat-field">
@@ -710,6 +907,7 @@ const CharacterSheet: React.FC = () => {
                   type="number"
                   value={character.initiative}
                   onChange={(e) => updateCharacter({ initiative: parseInt(e.target.value) || 0 })}
+                  onClick={(e) => openNumberSelector(e, character.initiative, (value) => updateCharacter({ initiative: value }))}
                 />
               </div>
               <div className="combat-field">
@@ -718,6 +916,7 @@ const CharacterSheet: React.FC = () => {
                   type="number"
                   value={character.speed}
                   onChange={(e) => updateCharacter({ speed: parseInt(e.target.value) || 30 })}
+                  onClick={(e) => openNumberSelector(e, character.speed, (value) => updateCharacter({ speed: value }))}
                 />
               </div>
               <div className="combat-field">
@@ -731,6 +930,9 @@ const CharacterSheet: React.FC = () => {
                       onChange={(e) => updateCharacter({
                         hitPoints: { ...character.hitPoints, maximum: parseInt(e.target.value) || 0 }
                       })}
+                      onClick={(e) => openNumberSelector(e, character.hitPoints.maximum, (value) => updateCharacter({
+                        hitPoints: { ...character.hitPoints, maximum: value }
+                      }))}
                     />
                   </div>
                   <div className="hp-input-group">
@@ -741,6 +943,9 @@ const CharacterSheet: React.FC = () => {
                       onChange={(e) => updateCharacter({
                         hitPoints: { ...character.hitPoints, current: parseInt(e.target.value) || 0 }
                       })}
+                      onClick={(e) => openNumberSelector(e, character.hitPoints.current, (value) => updateCharacter({
+                        hitPoints: { ...character.hitPoints, current: value }
+                      }))}
                     />
                   </div>
                   <div className="hp-input-group">
@@ -751,9 +956,24 @@ const CharacterSheet: React.FC = () => {
                       onChange={(e) => updateCharacter({
                         hitPoints: { ...character.hitPoints, temporary: parseInt(e.target.value) || 0 }
                       })}
+                      onClick={(e) => openNumberSelector(e, character.hitPoints.temporary, (value) => updateCharacter({
+                        hitPoints: { ...character.hitPoints, temporary: value }
+                      }))}
                     />
                   </div>
                 </div>
+              </div>
+              <div className="health-bar-container">
+                <div className="health-bar">
+                  <div 
+                    className="health-bar-fill"
+                    style={{
+                      width: `${getHealthPercentage()}%`,
+                      backgroundColor: getHealthBarColor(getHealthPercentage())
+                    }}
+                  ></div>
+                </div>
+                <span className="health-percentage">{Math.round(getHealthPercentage())}%</span>
               </div>
               <div className="combat-field">
                 <label>Hit Dice:</label>
@@ -761,6 +981,13 @@ const CharacterSheet: React.FC = () => {
                   type="text"
                   value={character.hitDice}
                   onChange={(e) => updateCharacter({ hitDice: e.target.value })}
+                  onClick={(e) => {
+                    const currentDieType = character.hitDice.match(/d\d+/)?.[0] || 'd8';
+                    openDieSelector(e, currentDieType, (dieType) => {
+                      const level = character.hitDice.match(/^\d+/)?.[0] || '1';
+                      updateCharacter({ hitDice: `${level}${dieType}` });
+                    });
+                  }}
                 />
               </div>
               <div className="combat-field">
@@ -769,6 +996,13 @@ const CharacterSheet: React.FC = () => {
                   type="text"
                   value={character.hitDiceTotal}
                   onChange={(e) => updateCharacter({ hitDiceTotal: e.target.value })}
+                  onClick={(e) => {
+                    const currentDieType = character.hitDiceTotal.match(/d\d+/)?.[0] || 'd8';
+                    openDieSelector(e, currentDieType, (dieType) => {
+                      const level = character.hitDiceTotal.match(/^\d+/)?.[0] || '1';
+                      updateCharacter({ hitDiceTotal: `${level}${dieType}` });
+                    });
+                  }}
                 />
               </div>
             </div>
@@ -812,10 +1046,18 @@ const CharacterSheet: React.FC = () => {
                     Roll Initiative
                   </button>
                   <button 
+                    onClick={handleTakeDamage}
+                    className="action-btn damage-btn"
+                    onMouseEnter={(e) => showTooltip('Take damage and reduce current hit points.', e)}
+                    onMouseLeave={hideTooltip}
+                  >
+                    Take Damage
+                  </button>
+                  <button 
                     onClick={handleSecondWind}
                     className={`action-btn second-wind-btn ${!isFighterClass() ? 'disabled' : ''}`}
                     disabled={!isFighterClass()}
-                    onMouseEnter={(e) => showTooltip(isFighterClass() ? 'Use Second Wind to heal 1d10 + your level hit points. (Fighter class feature)' : 'Second Wind is only available to Fighter class characters.', e)}
+                    onMouseEnter={(e) => showTooltip(isFighterClass() ? 'Use Second Wind to heal 1d10 + your level hit points. (Combat class feature)' : 'Second Wind is only available to Fighter, Guardian, and Scout class characters.', e)}
                     onMouseLeave={hideTooltip}
                   >
                     Second Wind
@@ -884,6 +1126,7 @@ const CharacterSheet: React.FC = () => {
                     type="number"
                     value={character.credits}
                     onChange={(e) => updateCharacter({ credits: parseInt(e.target.value) || 0 })}
+                    onClick={(e) => openNumberSelector(e, character.credits, (value) => updateCharacter({ credits: value }))}
                   />
                 </div>
                 <div className="resource-field">
@@ -892,6 +1135,7 @@ const CharacterSheet: React.FC = () => {
                     type="number"
                     value={character.forcePoints}
                     onChange={(e) => updateCharacter({ forcePoints: parseInt(e.target.value) || 0 })}
+                    onClick={(e) => openNumberSelector(e, character.forcePoints, (value) => updateCharacter({ forcePoints: value }))}
                   />
                 </div>
                 <div className="resource-field">
@@ -900,6 +1144,7 @@ const CharacterSheet: React.FC = () => {
                     type="number"
                     value={character.techPoints}
                     onChange={(e) => updateCharacter({ techPoints: parseInt(e.target.value) || 0 })}
+                    onClick={(e) => openNumberSelector(e, character.techPoints, (value) => updateCharacter({ techPoints: value }))}
                   />
                 </div>
                 <div className="resource-field">
@@ -910,6 +1155,7 @@ const CharacterSheet: React.FC = () => {
                     max="6"
                     value={character.exhaustion}
                     onChange={(e) => updateCharacter({ exhaustion: Math.max(0, Math.min(6, parseInt(e.target.value) || 0)) })}
+                    onClick={(e) => openNumberSelector(e, character.exhaustion, (value) => updateCharacter({ exhaustion: Math.max(0, Math.min(6, value)) }))}
                   />
                 </div>
               </div>
@@ -981,12 +1227,20 @@ const CharacterSheet: React.FC = () => {
                       placeholder="Attack Bonus"
                       value={weapon.attackBonus}
                       onChange={(e) => updateWeapon(index, { attackBonus: parseInt(e.target.value) || 0 })}
+                      onClick={(e) => openNumberSelector(e, weapon.attackBonus, (value) => updateWeapon(index, { attackBonus: value }))}
                     />
                     <input
                       type="text"
                       placeholder="Damage (e.g., 1d8)"
                       value={weapon.damage}
                       onChange={(e) => updateWeapon(index, { damage: e.target.value })}
+                      onClick={(e) => {
+                        const currentDieType = weapon.damage.match(/d\d+/)?.[0] || 'd4';
+                        openDieSelector(e, currentDieType, (dieType) => {
+                          const count = weapon.damage.match(/^\d+/)?.[0] || '1';
+                          updateWeapon(index, { damage: `${count}${dieType}` });
+                        });
+                      }}
                     />
                     <input
                       type="text"
@@ -1181,6 +1435,117 @@ const CharacterSheet: React.FC = () => {
                   )}
                 </div>
               </div>
+            </div>
+          </div>
+        </div>
+      )}
+      
+      {/* Damage Popup */}
+      {damagePopup.isOpen && (
+        <div className="damage-overlay" onClick={closeDamagePopup}>
+          <div className="damage-popup" onClick={(e) => e.stopPropagation()}>
+            <div className="damage-header">
+              <h3>Take Damage</h3>
+              <button className="close-button" onClick={closeDamagePopup}>×</button>
+            </div>
+            
+            <div className="damage-content">
+              <div className="damage-info">
+                <p>Current HP: <strong>{character.hitPoints.current}/{character.hitPoints.maximum}</strong></p>
+                <p>Health: <strong>{Math.round(getHealthPercentage())}%</strong></p>
+              </div>
+              
+              <div className="damage-controls">
+                <div className="damage-input">
+                  <label>Damage Amount:</label>
+                  <input
+                    type="number"
+                    min="0"
+                    value={damagePopup.damageAmount}
+                    onChange={(e) => setDamagePopup(prev => ({
+                      ...prev,
+                      damageAmount: Math.max(0, parseInt(e.target.value) || 0)
+                    }))}
+                    placeholder="Enter damage amount"
+                  />
+                </div>
+                
+                <div className="damage-preview">
+                  {damagePopup.damageAmount > 0 && (
+                    <p>New HP after damage: <strong>{Math.max(0, character.hitPoints.current - damagePopup.damageAmount)}</strong></p>
+                  )}
+                </div>
+                
+                <div className="damage-actions">
+                  <button 
+                    onClick={applyDamage}
+                    className="apply-damage-btn"
+                    disabled={damagePopup.damageAmount <= 0}
+                  >
+                    Apply Damage
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+      
+      {/* Number Selector Popup */}
+      {numberSelector.isOpen && (
+        <div className="number-selector-overlay" onClick={closeNumberSelector}>
+          <div 
+            className="number-selector-popup"
+            style={{
+              left: numberSelector.x,
+              top: numberSelector.y
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="number-selector-grid">
+              {Array.from({ length: 50 }, (_, i) => i + 1).map((num) => (
+                <button
+                  key={num}
+                  className={`number-selector-btn ${num === numberSelector.currentValue ? 'current' : ''}`}
+                  onClick={() => handleNumberSelect(num)}
+                >
+                  {num}
+                </button>
+              ))}
+            </div>
+            <div className="number-selector-actions">
+              <button 
+                className="number-selector-clear"
+                onClick={() => handleNumberSelect(0)}
+              >
+                Clear
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+      
+      {/* Die Selector Popup */}
+      {dieSelector.isOpen && (
+        <div className="die-selector-overlay" onClick={closeDieSelector}>
+          <div 
+            className="die-selector-popup"
+            style={{
+              left: dieSelector.x,
+              top: dieSelector.y
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="die-selector-grid">
+              {['d4', 'd6', 'd8', 'd10', 'd12', 'd20', 'd100'].map((dieType) => (
+                <button
+                  key={dieType}
+                  className={`die-selector-btn ${dieType === dieSelector.currentValue ? 'current' : ''}`}
+                  onClick={() => handleDieSelect(dieType)}
+                >
+                  {dieType}
+                </button>
+              ))}
             </div>
           </div>
         </div>

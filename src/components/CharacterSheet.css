@@ -853,6 +853,309 @@ section h2 {
   background: #3d6a3d;
 }
 
+/* Health Bar */
+.health-bar-container {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 4px;
+}
+
+.health-bar {
+  flex: 1;
+  height: 12px;
+  background: #333;
+  border: 1px solid #555;
+  border-radius: 2px;
+  overflow: hidden;
+}
+
+.health-bar-fill {
+  height: 100%;
+  transition: width 0.3s ease, background-color 0.3s ease;
+}
+
+.health-percentage {
+  font-size: 10px;
+  color: #fff;
+  font-weight: bold;
+  min-width: 30px;
+  text-align: right;
+}
+
+/* Damage Popup */
+.damage-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.8);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+}
+
+.damage-popup {
+  background: #2a2a2a;
+  border: 2px solid #555;
+  padding: 15px;
+  min-width: 300px;
+  max-width: 400px;
+}
+
+.damage-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 10px;
+  border-bottom: 1px solid #555;
+  padding-bottom: 5px;
+}
+
+.damage-header h3 {
+  color: #fff;
+  font-size: 14px;
+  margin: 0;
+}
+
+.damage-content {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.damage-info {
+  background: #333;
+  padding: 8px;
+  border: 1px solid #555;
+}
+
+.damage-info p {
+  margin: 2px 0;
+  font-size: 11px;
+  color: #fff;
+}
+
+.damage-info strong {
+  color: #ccc;
+}
+
+.damage-controls {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.damage-input {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.damage-input label {
+  font-size: 11px;
+  color: #fff;
+  font-weight: bold;
+}
+
+.damage-input input {
+  height: 24px;
+  padding: 4px 6px;
+  border: 1px solid #555;
+  background: #1a1a1a;
+  color: #fff;
+  font-size: 12px;
+}
+
+.damage-input input:focus {
+  outline: none;
+  border-color: #666;
+}
+
+.damage-preview {
+  background: #333;
+  padding: 6px;
+  border: 1px solid #555;
+  text-align: center;
+}
+
+.damage-preview p {
+  margin: 0;
+  font-size: 11px;
+  color: #fff;
+}
+
+.damage-preview strong {
+  color: #7c4a4a;
+}
+
+.damage-actions {
+  display: flex;
+  justify-content: center;
+}
+
+.apply-damage-btn {
+  padding: 8px 16px;
+  background: #7c4a4a;
+  border: 1px solid #9c6a6a;
+  color: #fff;
+  font-size: 12px;
+  cursor: pointer;
+  font-weight: bold;
+}
+
+.apply-damage-btn:hover:not(:disabled) {
+  background: #8c5a5a;
+}
+
+.apply-damage-btn:disabled {
+  background: #333;
+  color: #666;
+  cursor: not-allowed;
+  border-color: #555;
+}
+
+/* Number Selector Popup */
+.number-selector-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.8);
+  z-index: 1000;
+}
+
+.number-selector-popup {
+  position: absolute;
+  transform: translate(-50%, -50%);
+  background: #2a2a2a;
+  border: 2px solid #555;
+  border-radius: 8px;
+  padding: 15px;
+  min-width: 300px;
+  min-height: 200px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+}
+
+.number-selector-grid {
+  display: grid;
+  grid-template-columns: repeat(10, 1fr);
+  gap: 3px;
+  margin-bottom: 10px;
+}
+
+.number-selector-btn {
+  width: 22px;
+  height: 22px;
+  background: #444;
+  border: 1px solid #666;
+  color: #fff;
+  font-size: 9px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 3px;
+  transition: all 0.2s ease;
+}
+
+.number-selector-btn:hover {
+  background: #555;
+  transform: scale(1.1);
+}
+
+.number-selector-btn.current {
+  background: #4a7c4a;
+  border-color: #6a9c6a;
+  font-weight: bold;
+}
+
+.number-selector-actions {
+  display: flex;
+  justify-content: center;
+  margin-top: 8px;
+}
+
+.number-selector-clear {
+  padding: 4px 8px;
+  background: #7c4a4a;
+  border: 1px solid #9c6a6a;
+  color: #fff;
+  font-size: 10px;
+  cursor: pointer;
+  border-radius: 4px;
+}
+
+.number-selector-clear:hover {
+  background: #8c5a5a;
+}
+
+/* Die Selector Popup */
+.die-selector-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.8);
+  z-index: 1000;
+}
+
+.die-selector-popup {
+  position: absolute;
+  transform: translate(-50%, -50%);
+  background: #2a2a2a;
+  border: 2px solid #555;
+  border-radius: 8px;
+  padding: 15px;
+  min-width: 200px;
+  min-height: 120px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+}
+
+.die-selector-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 6px;
+  margin-bottom: 10px;
+}
+
+.die-selector-btn {
+  width: 50px;
+  height: 40px;
+  background: #444;
+  border: 1px solid #666;
+  color: #fff;
+  font-size: 12px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 4px;
+  transition: all 0.2s ease;
+  font-weight: bold;
+}
+
+.die-selector-btn:hover {
+  background: #555;
+  transform: scale(1.05);
+}
+
+.die-selector-btn.current {
+  background: #4a7c4a;
+  border-color: #6a9c6a;
+  font-weight: bold;
+}
+
 /* Responsive Design */
 @media (max-width: 1200px) {
   .main-content {

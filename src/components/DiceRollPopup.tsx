@@ -50,6 +50,11 @@ const DiceRollPopup: React.FC<DiceRollPopupProps> = ({
       setDice(newDice);
       setFinalResult(null);
       setRollHistory([]);
+      
+      // Automatically start rolling after a short delay
+      setTimeout(() => {
+        rollAllDice();
+      }, 300);
     }
   }, [isOpen, diceNotation]);
 
@@ -153,20 +158,35 @@ const DiceRollPopup: React.FC<DiceRollPopupProps> = ({
           )}
         </div>
         
-        <div className="roll-section">
-          <button 
-            className="roll-btn"
-            onClick={rollAllDice}
-            disabled={isRolling}
-          >
-            {isRolling ? 'Rolling...' : 'Roll Dice'}
-          </button>
-        </div>
+        {isRolling && (
+          <div className="rolling-section">
+            <div className="dice-container">
+              {dice.map((die) => (
+                <div key={die.id} className="rolling-die">
+                  <div className="die-face die-front">{die.value}</div>
+                  <div className="die-face die-back">{die.value}</div>
+                  <div className="die-face die-right">{die.value}</div>
+                  <div className="die-face die-left">{die.value}</div>
+                  <div className="die-face die-top">{die.value}</div>
+                  <div className="die-face die-bottom">{die.value}</div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
         
         {finalResult !== null && (
           <div className="result-section">
             <h4>Result</h4>
-            <div className="roll-result">{finalResult}</div>
+            <div className={`roll-result ${dice.length === 1 && dice[0].sides === 20 && dice[0].value === 20 ? 'natural-twenty' : ''} ${dice.length === 1 && dice[0].sides === 20 && dice[0].value === 1 ? 'natural-one' : ''}`}>
+              {finalResult}
+              {dice.length === 1 && dice[0].sides === 20 && dice[0].value === 20 && (
+                <div className="natural-twenty-text">Natural 20!</div>
+              )}
+              {dice.length === 1 && dice[0].sides === 20 && dice[0].value === 1 && (
+                <div className="natural-one-text">Epic Fail!</div>
+              )}
+            </div>
             <div className="roll-breakdown">
               Dice: {dice.map(d => d.value).join(' + ')} = {dice.reduce((sum, d) => sum + d.value, 0)}
               {modifiers !== 0 && ` + ${modifiers} = ${finalResult}`}

@@ -159,6 +159,9 @@ const CharacterCreation: React.FC<CharacterCreationProps> = ({ onCharacterCreate
   const renderStep1 = () => (
     <div className="creation-step">
       <h2>Step 1: Basic Information</h2>
+      <p className="step-description">
+        Begin by providing the fundamental details about your character. This information will shape your character's identity and background.
+      </p>
       <div className="basic-info-form">
         <div className="form-group">
           <label>Character Name:</label>
@@ -257,7 +260,7 @@ const CharacterCreation: React.FC<CharacterCreationProps> = ({ onCharacterCreate
     <div className="creation-step">
       <h2>Step 2: Roll Ability Scores</h2>
       <p className="step-description">
-        Roll 4d6, drop the lowest die, and sum the remaining three dice for each ability score.
+        Roll 4d6, drop the lowest die, and sum the remaining three dice for each ability score. You can roll individual scores or use the "Roll All" button to generate all scores at once.
       </p>
       
       <div className="roll-all-section">
@@ -287,7 +290,7 @@ const CharacterCreation: React.FC<CharacterCreationProps> = ({ onCharacterCreate
       </div>
 
       <div className="rolled-scores">
-        <h3>Rolled Scores:</h3>
+        <h3>Rolled Scores (Sorted High to Low):</h3>
         <div className="scores-list">
           {abilityScores
             .filter(score => score.rolled)
@@ -301,7 +304,7 @@ const CharacterCreation: React.FC<CharacterCreationProps> = ({ onCharacterCreate
 
       <div className="step-actions">
         <button onClick={() => setStep(1)} className="back-btn">
-          Back
+          Back to Basic Info
         </button>
         <button 
           onClick={assignAbilityScores}
@@ -317,6 +320,9 @@ const CharacterCreation: React.FC<CharacterCreationProps> = ({ onCharacterCreate
   const renderStep3 = () => (
     <div className="creation-step">
       <h2>Step 3: Review Your Character</h2>
+      <p className="step-description">
+        Review all the information for your character. Make sure everything looks correct before finalizing your character creation.
+      </p>
       
       <div className="character-summary">
         <div className="summary-section">
