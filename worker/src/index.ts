@@ -9,24 +9,105 @@ export interface CharacterData {
   name: string;
   level: number;
   class: string;
+  background: string;
+  species: string;
+  alignment: string;
+  experiencePoints: number;
+  
+  // Ability Scores
+  strength: number;
+  dexterity: number;
+  constitution: number;
+  intelligence: number;
+  wisdom: number;
+  charisma: number;
+  
+  // Combat
+  armorClass: number;
+  initiative: number;
+  speed: number;
   hitPoints: {
     maximum: number;
     current: number;
     temporary: number;
   };
-  armorClass: number;
-  initiative: number;
+  
+  // Hit Dice
+  hitDice: string;
+  hitDiceTotal: string;
+  
+  // Death Saves
+  deathSaves: {
+    successes: number;
+    failures: number;
+  };
+  
+  // Weapons
+  weapons: Weapon[];
+  
+  // Skills
+  skills: Skill[];
+  
+  // Proficiencies
+  proficiencies: {
+    armor: string;
+    weapons: string;
+    tools: string;
+    languages: string;
+  };
+  
+  // Features & Traits
+  features: string;
+  
+  // Resources
+  credits: number;
+  forcePoints: number;
+  techPoints: number;
+  
+  // Exhaustion
+  exhaustion: number;
+  
+  // Equipment
+  equipment: string;
+  
+  // Personality
+  personality: {
+    traits: string;
+    ideals: string;
+    bonds: string;
+    flaws: string;
+  };
+  
+  // Notes
+  notes: string;
+  
+  // Metadata
+  createdAt: string;
+  lastModified: string;
+  
+  // Initiative roll (optional)
   initiativeRoll?: {
     total: number;
     roll: number;
     modifier: number;
     timestamp: number;
   };
-  deathSaves: {
-    successes: number;
-    failures: number;
-  };
-  // Add other relevant fields as needed
+}
+
+export interface Weapon {
+  name: string;
+  attackBonus: number;
+  damage: string;
+  damageType: string;
+  range: string;
+  properties: string;
+}
+
+export interface Skill {
+  name: string;
+  ability: string;
+  proficient: boolean;
+  bonus: number;
 }
 
 export interface PartyMember {

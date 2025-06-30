@@ -375,26 +375,15 @@ const CharacterSheet: React.FC = () => {
     if (!character.id) return;
 
     const timeout = setTimeout(() => {
-      const partyCharacterData = {
-        id: character.id,
-        name: character.name,
-        level: character.level,
-        class: character.class,
-        hitPoints: character.hitPoints,
-        armorClass: character.armorClass,
-        initiative: character.initiative,
-        deathSaves: character.deathSaves
-      };
-      
-      // Broadcast character updates to party system
-      partyService.updateCharacter(partyCharacterData).catch(error => {
+      // Send the complete character data to the party system
+      partyService.updateCharacter(character).catch(error => {
         // Silently fail if partyService is not available (e.g., if not in a party)
         console.debug('Party service not available for character update:', error);
       });
     }, 300); // 300ms debounce
 
     return () => clearTimeout(timeout);
-  }, [character.id, character.name, character.level, character.class, character.hitPoints, character.armorClass, character.initiative, character.deathSaves]);
+  }, [character]); // Watch the entire character object for changes
 
   const getAbilityModifier = (score: number): number => {
     return Math.floor((score - 10) / 2);
