@@ -82,12 +82,6 @@ function App() {
     localStorage.setItem('starWarsCharacter', JSON.stringify(character));
   };
 
-  const handleNewCharacter = () => {
-    localStorage.removeItem('starWarsCharacter');
-    setCurrentPage('character-creation');
-    setIsCreating(true);
-  };
-
   const renderCurrentPage = () => {
     if (isCreating) {
       return <CharacterCreation onCharacterCreated={handleCharacterCreated} />;
@@ -95,19 +89,7 @@ function App() {
 
     switch (currentPage) {
       case 'character-sheet':
-        return (
-          <>
-            <header className="App-header">
-              <h1>Star Wars Character Sheet</h1>
-              <button onClick={handleNewCharacter} className="new-character-btn">
-                Create New Character
-              </button>
-            </header>
-            <main>
-              <CharacterSheet />
-            </main>
-          </>
-        );
+        return <CharacterSheet />;
       case 'character-management':
         return (
           <CharacterManagement 

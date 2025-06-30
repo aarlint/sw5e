@@ -752,25 +752,20 @@ const CharacterSheet: React.FC = () => {
               />
             </div>
             <div className="header-field">
-              <label>Class & Level:</label>
+              <label>Class:</label>
               <input
                 type="text"
-                value={`${character.class} ${character.level}`}
-                onChange={(e) => {
-                  const parts = e.target.value.split(' ');
-                  const level = parseInt(parts[parts.length - 1]) || 1;
-                  const className = parts.slice(0, -1).join(' ');
-                  updateCharacter({ class: className, level });
-                }}
-                onClick={(e) => {
-                  const target = e.target as HTMLInputElement;
-                  const parts = target.value.split(' ');
-                  const currentLevel = parseInt(parts[parts.length - 1]) || 1;
-                  openNumberSelector(e, currentLevel, (value) => {
-                    const className = parts.slice(0, -1).join(' ');
-                    updateCharacter({ class: className, level: value });
-                  });
-                }}
+                value={character.class}
+                onChange={(e) => updateCharacter({ class: e.target.value })}
+              />
+            </div>
+            <div className="header-field">
+              <label>Level:</label>
+              <input
+                type="number"
+                value={character.level}
+                onChange={(e) => updateCharacter({ level: parseInt(e.target.value) || 1 })}
+                onClick={(e) => openNumberSelector(e, character.level, (value) => updateCharacter({ level: value }))}
               />
             </div>
             <div className="header-field">
