@@ -176,13 +176,6 @@ const PartyManager: React.FC<PartyManagerProps> = ({ currentCharacter, onCharact
     };
   }, [currentCharacter.id, handleJoinParty]);
 
-  // Update party when character changes
-  useEffect(() => {
-    if (isInParty && currentCharacter.id) {
-      partyService.updateCharacter(currentCharacter);
-    }
-  }, [currentCharacter, isInParty]);
-
   const clearMessages = () => {
     setError(null);
     setSuccessMessage(null);
