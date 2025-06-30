@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import './DiceRollPopup.css';
 
 interface DiceRollPopupProps {
@@ -29,6 +29,19 @@ const DiceRollPopup: React.FC<DiceRollPopupProps> = ({
   const [isRolling, setIsRolling] = useState(false);
   const [finalResult, setFinalResult] = useState<number | null>(null);
   const [rollHistory, setRollHistory] = useState<string[]>([]);
+  
+  // Use refs to access current values without causing re-renders
+  const diceRef = useRef<Die[]>([]);
+  const isRollingRef = useRef(false);
+  
+  // Update refs when state changes
+  useEffect(() => {
+    diceRef.current = dice;
+  }, [dice]);
+  
+  useEffect(() => {
+    isRollingRef.current = isRolling;
+  }, [isRolling]);
 
   // Parse dice notation (e.g., "1d20" -> 1 die with 20 sides)
   const parseDiceNotation = (notation: string): { count: number; sides: number } => {
@@ -65,7 +78,7 @@ const DiceRollPopup: React.FC<DiceRollPopupProps> = ({
 
   // Roll all dice with staggered animation
   const rollAllDice = useCallback(async () => {
-    if (isRolling) return;
+    if (isRollingRef.current) return;
     
     setIsRolling(true);
     setFinalResult(null);
@@ -75,7 +88,7 @@ const DiceRollPopup: React.FC<DiceRollPopupProps> = ({
     
     // Roll dice with staggered timing
     const results = await Promise.all(
-      dice.map((die, index) => 
+      diceRef.current.map((die, index) => 
         new Promise<number>(async (resolve) => {
           // Stagger the start of each die roll
           setTimeout(async () => {
@@ -104,7 +117,7 @@ const DiceRollPopup: React.FC<DiceRollPopupProps> = ({
     
     setIsRolling(false);
     onRollComplete(total);
-  }, [dice, isRolling, modifiers, title, onRollComplete, rollDie]);
+  }, [modifiers, title, onRollComplete, rollDie]);
 
   // Initialize dice when popup opens
   useEffect(() => {
