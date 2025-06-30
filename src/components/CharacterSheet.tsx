@@ -328,7 +328,7 @@ const CharacterSheet: React.FC = () => {
       const newId = 'char_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
       setCharacter(prev => ({ ...prev, id: newId }));
     }
-  }, [character.id]);
+  }, [character.id, setCharacter]);
 
   // Load character data from localStorage on component mount
   useEffect(() => {
@@ -406,7 +406,7 @@ const CharacterSheet: React.FC = () => {
       
       setCharacter(characterWithDefaults);
     }
-  }, []);
+  }, [setCharacter]);
 
   // Save character data to localStorage and update characters list whenever it changes
   useEffect(() => {
