@@ -16,6 +16,8 @@ const PartyManager: React.FC<PartyManagerProps> = ({ currentCharacter, onCharact
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
+  const [connectionStatus, setConnectionStatus] = useState<'connected' | 'connecting' | 'disconnected'>('disconnected');
+  const [initiativeOrder, setInitiativeOrder] = useState<string[]>([]);
 
   const handleJoinParty = useCallback(async (code?: string, showMessage = true) => {
     const partyCode = code || joinCode;
@@ -54,6 +56,72 @@ const PartyManager: React.FC<PartyManagerProps> = ({ currentCharacter, onCharact
     }
   }, [joinCode, currentCharacter]);
 
+  // Sort party members by initiative roll (high to low)
+  const getSortedPartyMembers = () => {
+    if (!partyData?.members) return [];
+    
+    return [...partyData.members].sort((a, b) => {
+      const aRoll = a.characterData.initiativeRoll?.total || 0;
+      const bRoll = b.characterData.initiativeRoll?.total || 0;
+      
+      // If both have rolls, sort by roll (high to low)
+      if (aRoll > 0 && bRoll > 0) {
+        return bRoll - aRoll;
+      }
+      
+      // If only one has a roll, put the one with roll first
+      if (aRoll > 0 && bRoll === 0) return -1;
+      if (bRoll > 0 && aRoll === 0) return 1;
+      
+      // If neither has a roll, sort by initiative bonus (high to low)
+      return b.characterData.initiative - a.characterData.initiative;
+    });
+  };
+
+  const handleRollInitiative = async () => {
+    if (!currentCharacter.id) {
+      setError('Please ensure your character is saved before rolling initiative.');
+      return;
+    }
+
+    setLoading(true);
+    clearMessages();
+
+    try {
+      await partyService.rollInitiative(currentCharacter);
+      setSuccessMessage('Initiative rolled! Other party members will see the result.');
+    } catch (error) {
+      setError('Failed to roll initiative. Please try again.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const clearInitiativeRolls = () => {
+    if (!partyData?.members) return;
+    
+    // Clear initiative rolls for all members
+    const updatedMembers = partyData.members.map(member => ({
+      ...member,
+      characterData: {
+        ...member.characterData,
+        initiativeRoll: undefined
+      }
+    }));
+
+    setPartyData({
+      ...partyData,
+      members: updatedMembers
+    });
+
+    // Update each member's character data
+    updatedMembers.forEach(member => {
+      partyService.updateCharacter(member.characterData);
+    });
+
+    setSuccessMessage('Initiative rolls cleared!');
+  };
+
   useEffect(() => {
     const handlePartyUpdate = (data: PartyData | null) => {
       setPartyData(data);
@@ -80,9 +148,14 @@ const PartyManager: React.FC<PartyManagerProps> = ({ currentCharacter, onCharact
       }
     };
 
+    const handleInitiativeRolled = (data: { characterId: string; initiativeRoll: any }) => {
+      setSuccessMessage(`${data.characterId === currentCharacter.id ? 'You' : 'A party member'} rolled initiative: ${data.initiativeRoll.total} (${data.initiativeRoll.roll} + ${data.initiativeRoll.modifier >= 0 ? '+' : ''}${data.initiativeRoll.modifier})`);
+    };
+
     partyService.on('partyUpdate', handlePartyUpdate);
     partyService.on('error', handleError);
     partyService.on('requestCharacterData', handleRequestCharacterData);
+    partyService.on('initiativeRolled', handleInitiativeRolled);
 
     // Check if already in a party from localStorage
     const savedPartyCode = localStorage.getItem('currentPartyCode');
@@ -94,6 +167,7 @@ const PartyManager: React.FC<PartyManagerProps> = ({ currentCharacter, onCharact
       partyService.off('partyUpdate', handlePartyUpdate);
       partyService.off('error', handleError);
       partyService.off('requestCharacterData', handleRequestCharacterData);
+      partyService.off('initiativeRolled', handleInitiativeRolled);
     };
   }, [currentCharacter.id, handleJoinParty]);
 
@@ -228,6 +302,9 @@ const PartyManager: React.FC<PartyManagerProps> = ({ currentCharacter, onCharact
     );
   }
 
+  const sortedMembers = getSortedPartyMembers();
+  const hasInitiativeRolls = sortedMembers.some(member => member.characterData.initiativeRoll);
+
   return (
     <div className="party-manager">
       <div className="party-header">
@@ -246,6 +323,12 @@ const PartyManager: React.FC<PartyManagerProps> = ({ currentCharacter, onCharact
         </div>
         
         <div className="party-actions">
+          <div className="connection-status">
+            <div 
+              className={`connection-dot ${connectionStatus}`}
+              title={`Connection: ${connectionStatus}`}
+            />
+          </div>
           <button
             onClick={handleLeaveParty}
             disabled={loading}
@@ -259,12 +342,35 @@ const PartyManager: React.FC<PartyManagerProps> = ({ currentCharacter, onCharact
       {error && <div className="error-message">{error}</div>}
       {successMessage && <div className="success-message">{successMessage}</div>}
 
+      {/* Initiative Controls */}
+      <div className="initiative-controls">
+        <h3>Initiative</h3>
+        <div className="initiative-buttons">
+          <button
+            onClick={handleRollInitiative}
+            disabled={loading}
+            className="roll-initiative-btn"
+          >
+            {loading ? 'Rolling...' : 'Roll Initiative'}
+          </button>
+          {hasInitiativeRolls && (
+            <button
+              onClick={clearInitiativeRolls}
+              className="clear-initiative-btn"
+            >
+              Clear Rolls
+            </button>
+          )}
+        </div>
+      </div>
+
       <div className="party-members">
-        {partyData?.members.map((member) => (
+        {sortedMembers.map((member, index) => (
           <PartyMemberCard
             key={member.characterId}
             member={member}
             isCurrentPlayer={member.characterId === currentCharacter.id}
+            initiativeOrder={hasInitiativeRolls ? index + 1 : undefined}
           />
         ))}
       </div>

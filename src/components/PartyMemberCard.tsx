@@ -5,11 +5,12 @@ import './PartyMemberCard.css';
 interface PartyMemberCardProps {
   member: PartyMember;
   isCurrentPlayer?: boolean;
+  initiativeOrder?: number;
 }
 
-const PartyMemberCard: React.FC<PartyMemberCardProps> = ({ member, isCurrentPlayer = false }) => {
+const PartyMemberCard: React.FC<PartyMemberCardProps> = ({ member, isCurrentPlayer = false, initiativeOrder }) => {
   const { characterData } = member;
-  const { hitPoints, deathSaves } = characterData;
+  const { hitPoints, deathSaves, initiativeRoll } = characterData;
 
   const getHealthPercentage = () => {
     if (hitPoints.maximum === 0) return 0;
@@ -54,6 +55,11 @@ const PartyMemberCard: React.FC<PartyMemberCardProps> = ({ member, isCurrentPlay
           <span className="member-level">Lv.{characterData.level}</span>
         </div>
         <div className="member-class">{characterData.class}</div>
+        {initiativeOrder && (
+          <div className="initiative-order">
+            #{initiativeOrder}
+          </div>
+        )}
         {isOffline && <div className="offline-indicator">Offline</div>}
       </div>
 
@@ -68,6 +74,19 @@ const PartyMemberCard: React.FC<PartyMemberCardProps> = ({ member, isCurrentPlay
             <span>{characterData.initiative >= 0 ? '+' : ''}{characterData.initiative}</span>
           </div>
         </div>
+
+        {/* Initiative Roll Display */}
+        {initiativeRoll && (
+          <div className="initiative-roll-display">
+            <div className="initiative-roll">
+              <label>Initiative Roll:</label>
+              <span className="initiative-total">{initiativeRoll.total}</span>
+              <span className="initiative-breakdown">
+                ({initiativeRoll.roll} + {initiativeRoll.modifier >= 0 ? '+' : ''}{initiativeRoll.modifier})
+              </span>
+            </div>
+          </div>
+        )}
 
         <div className="health-section">
           <div className="hp-display">

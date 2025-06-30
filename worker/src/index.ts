@@ -16,6 +16,12 @@ export interface CharacterData {
   };
   armorClass: number;
   initiative: number;
+  initiativeRoll?: {
+    total: number;
+    roll: number;
+    modifier: number;
+    timestamp: number;
+  };
   deathSaves: {
     successes: number;
     failures: number;
@@ -37,7 +43,7 @@ export interface PartyData {
 }
 
 interface WebSocketMessage {
-  type: 'join' | 'leave' | 'update' | 'heartbeat' | 'create';
+  type: 'join' | 'leave' | 'update' | 'heartbeat' | 'create' | 'roll_initiative';
   partyCode?: string;
   characterId?: string;
   characterData?: CharacterData;
@@ -214,6 +220,50 @@ async function handleWebSocketMessage(webSocket: WebSocket, message: WebSocketMe
           // Broadcast to all party members
           await broadcastToParty(message.partyCode, {
             type: 'member_updated',
+            partyData: {
+              code: partyData.code,
+              members: Object.values(partyData.members),
+              createdAt: partyData.createdAt,
+              lastUpdated: partyData.lastUpdated
+            }
+          });
+        }
+        break;
+      }
+
+      case 'roll_initiative': {
+        if (!message.partyCode || !message.characterData) {
+          webSocket.send(JSON.stringify({
+            type: 'error',
+            error: 'Missing partyCode or characterData'
+          }));
+          return;
+        }
+
+        const partyDataStr = await env.PARTY_STORAGE.get(`party:${message.partyCode}`);
+        if (!partyDataStr) {
+          webSocket.send(JSON.stringify({
+            type: 'error',
+            error: 'Party not found'
+          }));
+          return;
+        }
+
+        const partyData: PartyData = JSON.parse(partyDataStr);
+        
+        if (partyData.members[message.characterData.id]) {
+          // Update the character data with the initiative roll
+          partyData.members[message.characterData.id].characterData = message.characterData;
+          partyData.members[message.characterData.id].lastSeen = Date.now();
+          partyData.lastUpdated = Date.now();
+          
+          await env.PARTY_STORAGE.put(`party:${message.partyCode}`, JSON.stringify(partyData));
+          
+          // Broadcast to all party members
+          await broadcastToParty(message.partyCode, {
+            type: 'initiative_rolled',
+            characterId: message.characterData.id,
+            initiativeRoll: message.characterData.initiativeRoll,
             partyData: {
               code: partyData.code,
               members: Object.values(partyData.members),

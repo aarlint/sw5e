@@ -10,6 +10,12 @@ interface CharacterData {
   };
   armorClass: number;
   initiative: number;
+  initiativeRoll?: {
+    total: number;
+    roll: number;
+    modifier: number;
+    timestamp: number;
+  };
   deathSaves: {
     successes: number;
     failures: number;
@@ -30,7 +36,7 @@ interface PartyData {
 }
 
 interface WebSocketMessage {
-  type: 'join' | 'leave' | 'update' | 'heartbeat' | 'create';
+  type: 'join' | 'leave' | 'update' | 'heartbeat' | 'create' | 'roll_initiative';
   partyCode?: string;
   characterId?: string;
   characterData?: CharacterData;
@@ -57,12 +63,14 @@ class PartyService {
   private connectWebSocket(): Promise<void> {
     return new Promise((resolve, reject) => {
       try {
+        this.emit('connectionStatus', 'connecting');
         const wsUrl = this.workerUrl.replace('http', 'ws') + '/ws';
         this.webSocket = new WebSocket(wsUrl);
 
         this.webSocket.onopen = () => {
           console.log('WebSocket connected');
           this.reconnectAttempts = 0;
+          this.emit('connectionStatus', 'connected');
           resolve();
         };
 
@@ -77,14 +85,17 @@ class PartyService {
 
         this.webSocket.onclose = () => {
           console.log('WebSocket disconnected');
+          this.emit('connectionStatus', 'disconnected');
           this.handleDisconnect();
         };
 
         this.webSocket.onerror = (error) => {
           console.error('WebSocket error:', error);
+          this.emit('connectionStatus', 'disconnected');
           reject(error);
         };
       } catch (error) {
+        this.emit('connectionStatus', 'disconnected');
         reject(error);
       }
     });
@@ -100,6 +111,14 @@ class PartyService {
       case 'member_updated':
       case 'member_left':
         this.emit('partyUpdate', message.partyData);
+        break;
+      
+      case 'initiative_rolled':
+        this.emit('partyUpdate', message.partyData);
+        this.emit('initiativeRolled', {
+          characterId: message.characterId,
+          initiativeRoll: message.initiativeRoll
+        });
         break;
       
       case 'left_party':
@@ -295,6 +314,7 @@ class PartyService {
     this.currentPartyCode = null;
     this.currentCharacterId = null;
     this.reconnectAttempts = 0;
+    this.emit('connectionStatus', 'disconnected');
   }
 
   // Event system for listening to party updates
@@ -331,6 +351,36 @@ class PartyService {
   // Legacy method - kept for compatibility
   startHeartbeat() {
     // This method is called by existing code, but heartbeat is now automatic
+  }
+
+  async rollInitiative(characterData: CharacterData): Promise<void> {
+    if (!this.currentPartyCode) return;
+
+    try {
+      // Calculate initiative roll
+      const roll = Math.floor(Math.random() * 20) + 1; // 1d20
+      const modifier = Math.floor((characterData.initiative - 10) / 2); // Convert initiative bonus to modifier
+      const total = roll + modifier;
+      
+      // Create updated character data with initiative roll
+      const updatedCharacterData: CharacterData = {
+        ...characterData,
+        initiativeRoll: {
+          total,
+          roll,
+          modifier,
+          timestamp: Date.now()
+        }
+      };
+
+      this.sendWebSocketMessage({
+        type: 'roll_initiative',
+        partyCode: this.currentPartyCode,
+        characterData: updatedCharacterData
+      });
+    } catch (error) {
+      console.error('Failed to roll initiative:', error);
+    }
   }
 }
 
