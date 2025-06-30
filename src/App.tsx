@@ -37,15 +37,12 @@ interface Character {
 function App() {
   const [currentPage, setCurrentPage] = useState('character-management');
   const [isDiceRollerOpen, setIsDiceRollerOpen] = useState(false);
-  const [currentCharacter, setCurrentCharacter] = useState<Character | null>(null);
   const [isCreating, setIsCreating] = useState(false);
 
   // Check if character exists in localStorage on component mount
   useEffect(() => {
     const savedCharacter = localStorage.getItem('starWarsCharacter');
     if (savedCharacter) {
-      const character = JSON.parse(savedCharacter);
-      setCurrentCharacter(character);
       setCurrentPage('character-sheet');
     }
   }, []);
@@ -67,8 +64,6 @@ function App() {
       createdAt: new Date().toISOString(),
       lastModified: new Date().toISOString()
     };
-
-    setCurrentCharacter(newCharacter);
     
     // Save to localStorage
     localStorage.setItem('starWarsCharacter', JSON.stringify(newCharacter));
@@ -84,12 +79,10 @@ function App() {
   };
 
   const handleSelectCharacter = (character: Character) => {
-    setCurrentCharacter(character);
     localStorage.setItem('starWarsCharacter', JSON.stringify(character));
   };
 
   const handleNewCharacter = () => {
-    setCurrentCharacter(null);
     localStorage.removeItem('starWarsCharacter');
     setCurrentPage('character-creation');
     setIsCreating(true);
