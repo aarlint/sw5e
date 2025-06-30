@@ -139,68 +139,53 @@ const DiceRollPopup: React.FC<DiceRollPopupProps> = ({
   if (!isOpen) return null;
 
   return (
-    <div className="dice-roll-popup-overlay" onClick={onClose}>
-      <div className="dice-roll-popup" onClick={(e) => e.stopPropagation()}>
-        <div className="popup-header">
-          <h2>{title}</h2>
-          <button className="close-button" onClick={onClose}>×</button>
+    <div className="dice-popup-overlay" onClick={onClose}>
+      <div className="dice-popup" onClick={(e) => e.stopPropagation()}>
+        <div className="dice-popup-header">
+          <h3>{title}</h3>
+          <button className="close-popup-btn" onClick={onClose}>×</button>
         </div>
         
-        <div className="popup-content">
-          <div className="dice-info">
-            <div className="dice-notation">
-              <span className="dice-text">{diceNotation}</span>
-              {modifiers !== 0 && (
-                <span className="modifier-text">
-                  {modifiers > 0 ? '+' : ''}{modifiers}
-                </span>
-              )}
-            </div>
-          </div>
-          
-          <div className="dice-container">
-            {dice.map((die) => (
-              <div 
-                key={die.id} 
-                className={`die ${die.isRolling ? 'rolling' : ''}`}
-                data-sides={die.sides}
-              >
-                <div className="die-value">{die.value}</div>
-                <div className="die-label">d{die.sides}</div>
-              </div>
-            ))}
-          </div>
-          
-          <div className="roll-button-container">
-            <button 
-              className={`roll-button ${isRolling ? 'rolling' : ''}`}
-              onClick={rollAllDice}
-              disabled={isRolling}
-            >
-              {isRolling ? 'Rolling...' : 'Roll Dice'}
-            </button>
-          </div>
-          
-          {finalResult !== null && (
-            <div className="result-container">
-              <div className="result-label">Final Result</div>
-              <div className="result-value">{finalResult}</div>
-            </div>
-          )}
-          
-          {rollHistory.length > 0 && (
-            <div className="roll-history">
-              <h4>Recent Rolls</h4>
-              <div className="history-list">
-                {rollHistory.map((roll, index) => (
-                  <div key={index} className="history-item">
-                    {roll}
-                  </div>
-                ))}
-              </div>
-            </div>
+        <div className="dice-info">
+          <p><strong>Dice:</strong> {diceNotation}</p>
+          {modifiers !== 0 && (
+            <p><strong>Modifiers:</strong> {modifiers > 0 ? '+' : ''}{modifiers}</p>
           )}
         </div>
+        
+        <div className="roll-section">
+          <button 
+            className="roll-btn"
+            onClick={rollAllDice}
+            disabled={isRolling}
+          >
+            {isRolling ? 'Rolling...' : 'Roll Dice'}
+          </button>
+        </div>
+        
+        {finalResult !== null && (
+          <div className="result-section">
+            <h4>Result</h4>
+            <div className="roll-result">{finalResult}</div>
+            <div className="roll-breakdown">
+              Dice: {dice.map(d => d.value).join(' + ')} = {dice.reduce((sum, d) => sum + d.value, 0)}
+              {modifiers !== 0 && ` + ${modifiers} = ${finalResult}`}
+            </div>
+          </div>
+        )}
+        
+        {rollHistory.length > 0 && (
+          <div className="roll-history">
+            <h4>Recent Rolls</h4>
+            <div className="history-list">
+              {rollHistory.map((roll, index) => (
+                <div key={index} className="history-item">
+                  {roll}
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );

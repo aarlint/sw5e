@@ -60,6 +60,10 @@ interface CharacterData {
   // Resources
   credits: number;
   forcePoints: number;
+  techPoints: number;
+  
+  // Exhaustion
+  exhaustion: number;
   
   // Equipment
   equipment: string;
@@ -150,6 +154,8 @@ const CharacterSheet: React.FC = () => {
     features: '',
     credits: 0,
     forcePoints: 0,
+    techPoints: 0,
+    exhaustion: 0,
     equipment: '',
     personality: {
       traits: '',
@@ -167,7 +173,23 @@ const CharacterSheet: React.FC = () => {
     isOpen: false,
     title: '',
     diceNotation: '1d20',
-    modifiers: 0
+    modifiers: 0,
+    onRollComplete: (result: number) => {}
+  });
+
+  // Tooltip state
+  const [tooltip, setTooltip] = useState({
+    isVisible: false,
+    text: '',
+    x: 0,
+    y: 0
+  });
+
+  // Hit dice spending interface state
+  const [hitDiceSpending, setHitDiceSpending] = useState({
+    isOpen: false,
+    diceToSpend: 1,
+    result: null as number | null
   });
 
   // Load character data from localStorage on component mount
@@ -230,6 +252,8 @@ const CharacterSheet: React.FC = () => {
         features: loadedCharacter.features || '',
         credits: loadedCharacter.credits || 0,
         forcePoints: loadedCharacter.forcePoints || 0,
+        techPoints: loadedCharacter.techPoints || 0,
+        exhaustion: loadedCharacter.exhaustion || 0,
         equipment: loadedCharacter.equipment || '',
         personality: {
           traits: loadedCharacter.personality?.traits || '',
@@ -294,7 +318,8 @@ const CharacterSheet: React.FC = () => {
       isOpen: true,
       title: `${skill.name} Check`,
       diceNotation: '1d20',
-      modifiers
+      modifiers,
+      onRollComplete: handleRollComplete
     });
   };
 
@@ -305,7 +330,8 @@ const CharacterSheet: React.FC = () => {
       isOpen: true,
       title: `${weapon.name} Attack`,
       diceNotation: '1d20',
-      modifiers
+      modifiers,
+      onRollComplete: handleRollComplete
     });
   };
 
@@ -314,7 +340,8 @@ const CharacterSheet: React.FC = () => {
       isOpen: true,
       title: `${weapon.name} Damage`,
       diceNotation: weapon.damage,
-      modifiers: 0
+      modifiers: 0,
+      onRollComplete: handleRollComplete
     });
   };
 
@@ -368,6 +395,167 @@ const CharacterSheet: React.FC = () => {
       ...prev,
       deathSaves: { ...prev.deathSaves, [type]: Math.max(0, Math.min(3, value)) }
     }));
+  };
+
+  const handleDeathSaveRollComplete = (result: number) => {
+    let newSuccesses = character.deathSaves.successes;
+    let newFailures = character.deathSaves.failures;
+    
+    if (result >= 10) {
+      // Success
+      if (result === 20) {
+        // Critical success - 2 successes
+        newSuccesses = Math.min(3, newSuccesses + 2);
+      } else {
+        // Normal success
+        newSuccesses = Math.min(3, newSuccesses + 1);
+      }
+    } else {
+      // Failure
+      if (result === 1) {
+        // Critical failure - 2 failures
+        newFailures = Math.min(3, newFailures + 2);
+      } else {
+        // Normal failure
+        newFailures = Math.min(3, newFailures + 1);
+      }
+    }
+    
+    setCharacter(prev => ({
+      ...prev,
+      deathSaves: { successes: newSuccesses, failures: newFailures }
+    }));
+  };
+
+  const handleLongRest = () => {
+    if (window.confirm('Take a long rest? This will reset death saves, restore hit points, restore half of used hit dice, reset tech and force points, and reduce exhaustion by 1.')) {
+      setCharacter(prev => {
+        // Calculate how many hit dice were used (difference between base and current)
+        const baseHitDice = prev.hitDice;
+        const currentHitDice = prev.hitDiceTotal;
+        const baseCount = parseInt(baseHitDice.match(/^\d+/)?.[0] || '1');
+        const currentCount = parseInt(currentHitDice.match(/^\d+/)?.[0] || '1');
+        const usedDice = baseCount - currentCount;
+        
+        // Restore half of used hit dice (minimum 0, maximum to base amount)
+        const restoredDice = Math.min(baseCount, currentCount + Math.floor(usedDice / 2));
+        const newHitDiceTotal = `${restoredDice}${baseHitDice.substring(baseHitDice.indexOf('d'))}`;
+        
+        return {
+          ...prev,
+          deathSaves: { successes: 0, failures: 0 },
+          hitPoints: { 
+            ...prev.hitPoints, 
+            current: prev.hitPoints.maximum 
+          },
+          hitDiceTotal: newHitDiceTotal,
+          forcePoints: 0, // Reset force points
+          techPoints: 0,  // Reset tech points
+          exhaustion: Math.max(0, prev.exhaustion - 1) // Reduce exhaustion by 1, minimum 0
+        };
+      });
+    }
+  };
+
+  const handleShortRest = () => {
+    if (window.confirm('Take a short rest? This will allow you to spend hit dice to recover hit points.')) {
+      setHitDiceSpending({
+        isOpen: true,
+        diceToSpend: 1,
+        result: null
+      });
+    }
+  };
+
+  const handleSecondWind = () => {
+    if (window.confirm('Use Second Wind? This will heal you for 1d10 + your level.')) {
+      const healing = rollDice('1d10') + character.level;
+      setCharacter(prev => ({
+        ...prev,
+        hitPoints: {
+          ...prev.hitPoints,
+          current: Math.min(prev.hitPoints.maximum, prev.hitPoints.current + healing)
+        }
+      }));
+      alert(`Second Wind healed you for ${healing} hit points!`);
+    }
+  };
+
+  const handleInitiative = () => {
+    const dexMod = getAbilityModifier(character.dexterity);
+    setDicePopup({
+      isOpen: true,
+      title: 'Initiative Roll',
+      diceNotation: '1d20',
+      modifiers: dexMod,
+      onRollComplete: handleRollComplete
+    });
+  };
+
+  const handleDeathSave = () => {
+    setDicePopup({
+      isOpen: true,
+      title: 'Death Save',
+      diceNotation: '1d20',
+      modifiers: 0,
+      onRollComplete: handleDeathSaveRollComplete
+    });
+  };
+
+  const showTooltip = (text: string, event: React.MouseEvent) => {
+    setTooltip({
+      isVisible: true,
+      text,
+      x: event.clientX,
+      y: event.clientY
+    });
+  };
+
+  const hideTooltip = () => {
+    setTooltip(prev => ({ ...prev, isVisible: false }));
+  };
+
+  const rollHitDice = () => {
+    const hitDiceNotation = character.hitDiceTotal;
+    const healing = rollDice(hitDiceNotation);
+    const conMod = getAbilityModifier(character.constitution);
+    const totalHealing = healing + conMod;
+    
+    setHitDiceSpending(prev => ({
+      ...prev,
+      result: totalHealing
+    }));
+  };
+
+  const applyHitDiceHealing = () => {
+    if (hitDiceSpending.result !== null) {
+      setCharacter(prev => ({
+        ...prev,
+        hitPoints: {
+          ...prev.hitPoints,
+          current: Math.min(prev.hitPoints.maximum, prev.hitPoints.current + hitDiceSpending.result!)
+        },
+        hitDiceTotal: prev.hitDiceTotal.replace(/^\d+/, (parseInt(prev.hitDiceTotal.match(/^\d+/)?.[0] || '1') - hitDiceSpending.diceToSpend).toString())
+      }));
+      
+      setHitDiceSpending({
+        isOpen: false,
+        diceToSpend: 1,
+        result: null
+      });
+    }
+  };
+
+  const closeHitDiceSpending = () => {
+    setHitDiceSpending({
+      isOpen: false,
+      diceToSpend: 1,
+      result: null
+    });
+  };
+
+  const isFighterClass = () => {
+    return character.class.toLowerCase().includes('fighter');
   };
 
   return (
@@ -495,8 +683,9 @@ const CharacterSheet: React.FC = () => {
                   <button 
                     onClick={() => rollSkillCheck(skill)}
                     className="roll-btn"
+                    title={`Roll ${skill.name} check`}
                   >
-                    Roll
+                    🎲
                   </button>
                 </div>
               ))}
@@ -534,30 +723,36 @@ const CharacterSheet: React.FC = () => {
               <div className="combat-field">
                 <label>Hit Points:</label>
                 <div className="hp-inputs">
-                  <input
-                    type="number"
-                    placeholder="Max"
-                    value={character.hitPoints.maximum}
-                    onChange={(e) => updateCharacter({
-                      hitPoints: { ...character.hitPoints, maximum: parseInt(e.target.value) || 0 }
-                    })}
-                  />
-                  <input
-                    type="number"
-                    placeholder="Current"
-                    value={character.hitPoints.current}
-                    onChange={(e) => updateCharacter({
-                      hitPoints: { ...character.hitPoints, current: parseInt(e.target.value) || 0 }
-                    })}
-                  />
-                  <input
-                    type="number"
-                    placeholder="Temp"
-                    value={character.hitPoints.temporary}
-                    onChange={(e) => updateCharacter({
-                      hitPoints: { ...character.hitPoints, temporary: parseInt(e.target.value) || 0 }
-                    })}
-                  />
+                  <div className="hp-input-group">
+                    <label>Max</label>
+                    <input
+                      type="number"
+                      value={character.hitPoints.maximum}
+                      onChange={(e) => updateCharacter({
+                        hitPoints: { ...character.hitPoints, maximum: parseInt(e.target.value) || 0 }
+                      })}
+                    />
+                  </div>
+                  <div className="hp-input-group">
+                    <label>Current</label>
+                    <input
+                      type="number"
+                      value={character.hitPoints.current}
+                      onChange={(e) => updateCharacter({
+                        hitPoints: { ...character.hitPoints, current: parseInt(e.target.value) || 0 }
+                      })}
+                    />
+                  </div>
+                  <div className="hp-input-group">
+                    <label>Temp</label>
+                    <input
+                      type="number"
+                      value={character.hitPoints.temporary}
+                      onChange={(e) => updateCharacter({
+                        hitPoints: { ...character.hitPoints, temporary: parseInt(e.target.value) || 0 }
+                      })}
+                    />
+                  </div>
                 </div>
               </div>
               <div className="combat-field">
@@ -579,60 +774,144 @@ const CharacterSheet: React.FC = () => {
             </div>
           </section>
 
-          {/* Death Saves */}
-          <section className="death-saves">
-            <h2>Death Saves</h2>
-            <div className="death-saves-grid">
-              <div className="death-save-section">
-                <label>Successes:</label>
-                <div className="death-save-buttons">
-                  {[1, 2, 3].map(num => (
-                    <button
-                      key={`success-${num}`}
-                      className={`death-save-btn ${character.deathSaves.successes >= num ? 'active' : ''}`}
-                      onClick={() => updateDeathSave('successes', num)}
-                    >
-                      ✓
-                    </button>
-                  ))}
+          {/* Actions */}
+          <section className="actions">
+            <h2>Actions</h2>
+            <div className="actions-grid">
+              <div className="action-group">
+                <h3>Rest</h3>
+                <div className="action-buttons">
+                  <button 
+                    onClick={handleShortRest}
+                    className="action-btn short-rest-btn"
+                    onMouseEnter={(e) => showTooltip('Take a short rest (1 hour). Spend hit dice to recover hit points.', e)}
+                    onMouseLeave={hideTooltip}
+                  >
+                    Short Rest
+                  </button>
+                  <button 
+                    onClick={handleLongRest}
+                    className="action-btn long-rest-btn"
+                    onMouseEnter={(e) => showTooltip('Take a long rest (8 hours). Reset death saves, restore all hit points, restore half of used hit dice, reset tech and force points, and reduce exhaustion by 1.', e)}
+                    onMouseLeave={hideTooltip}
+                  >
+                    Long Rest
+                  </button>
                 </div>
               </div>
-              <div className="death-save-section">
-                <label>Failures:</label>
-                <div className="death-save-buttons">
-                  {[1, 2, 3].map(num => (
-                    <button
-                      key={`failure-${num}`}
-                      className={`death-save-btn ${character.deathSaves.failures >= num ? 'active' : ''}`}
-                      onClick={() => updateDeathSave('failures', num)}
-                    >
-                      ✗
-                    </button>
-                  ))}
+              
+              <div className="action-group">
+                <h3>Combat</h3>
+                <div className="action-buttons">
+                  <button 
+                    onClick={handleInitiative}
+                    className="action-btn initiative-btn"
+                    onMouseEnter={(e) => showTooltip('Roll initiative (1d20 + Dexterity modifier) to determine combat order.', e)}
+                    onMouseLeave={hideTooltip}
+                  >
+                    Roll Initiative
+                  </button>
+                  <button 
+                    onClick={handleSecondWind}
+                    className={`action-btn second-wind-btn ${!isFighterClass() ? 'disabled' : ''}`}
+                    disabled={!isFighterClass()}
+                    onMouseEnter={(e) => showTooltip(isFighterClass() ? 'Use Second Wind to heal 1d10 + your level hit points. (Fighter class feature)' : 'Second Wind is only available to Fighter class characters.', e)}
+                    onMouseLeave={hideTooltip}
+                  >
+                    Second Wind
+                  </button>
+                </div>
+              </div>
+              
+              <div className="action-group">
+                <h3>Survival</h3>
+                <div className="action-buttons">
+                  <button 
+                    onClick={handleDeathSave}
+                    className="action-btn death-save-btn"
+                    onMouseEnter={(e) => showTooltip('Roll a death save (1d20). 10+ = success, 9 or lower = failure. Rolling 1 = 2 failures, rolling 20 = 2 successes.', e)}
+                    onMouseLeave={hideTooltip}
+                  >
+                    Death Save
+                  </button>
                 </div>
               </div>
             </div>
           </section>
 
-          {/* Resources */}
-          <section className="resources">
-            <h2>Resources</h2>
-            <div className="resources-grid">
-              <div className="resource-field">
-                <label>Credits:</label>
-                <input
-                  type="number"
-                  value={character.credits}
-                  onChange={(e) => updateCharacter({ credits: parseInt(e.target.value) || 0 })}
-                />
+          {/* Death Saves and Resources Combined */}
+          <section className="death-resources">
+            <div className="death-saves-section">
+              <h3>Death Saves</h3>
+              <div className="death-saves-grid">
+                <div className="death-save-section">
+                  <label>Successes:</label>
+                  <div className="death-save-buttons">
+                    {[1, 2, 3].map(num => (
+                      <button
+                        key={`success-${num}`}
+                        className={`death-save-btn success ${character.deathSaves.successes >= num ? 'active' : ''}`}
+                        onClick={() => updateDeathSave('successes', num)}
+                      >
+                        ✓
+                      </button>
+                    ))}
+                  </div>
+                </div>
+                <div className="death-save-section">
+                  <label>Failures:</label>
+                  <div className="death-save-buttons">
+                    {[1, 2, 3].map(num => (
+                      <button
+                        key={`failure-${num}`}
+                        className={`death-save-btn failure ${character.deathSaves.failures >= num ? 'active' : ''}`}
+                        onClick={() => updateDeathSave('failures', num)}
+                      >
+                        ✗
+                      </button>
+                    ))}
+                  </div>
+                </div>
               </div>
-              <div className="resource-field">
-                <label>Force Points:</label>
-                <input
-                  type="number"
-                  value={character.forcePoints}
-                  onChange={(e) => updateCharacter({ forcePoints: parseInt(e.target.value) || 0 })}
-                />
+            </div>
+            
+            <div className="resources-section">
+              <h3>Resources</h3>
+              <div className="resources-grid">
+                <div className="resource-field">
+                  <label>Credits:</label>
+                  <input
+                    type="number"
+                    value={character.credits}
+                    onChange={(e) => updateCharacter({ credits: parseInt(e.target.value) || 0 })}
+                  />
+                </div>
+                <div className="resource-field">
+                  <label>Force Points:</label>
+                  <input
+                    type="number"
+                    value={character.forcePoints}
+                    onChange={(e) => updateCharacter({ forcePoints: parseInt(e.target.value) || 0 })}
+                  />
+                </div>
+                <div className="resource-field">
+                  <label>Tech Points:</label>
+                  <input
+                    type="number"
+                    value={character.techPoints}
+                    onChange={(e) => updateCharacter({ techPoints: parseInt(e.target.value) || 0 })}
+                  />
+                </div>
+                <div className="resource-field">
+                  <label>Exhaustion:</label>
+                  <input
+                    type="number"
+                    min="0"
+                    max="6"
+                    value={character.exhaustion}
+                    onChange={(e) => updateCharacter({ exhaustion: Math.max(0, Math.min(6, parseInt(e.target.value) || 0)) })}
+                  />
+                </div>
               </div>
             </div>
           </section>
@@ -732,14 +1011,16 @@ const CharacterSheet: React.FC = () => {
                     <button 
                       onClick={() => rollAttack(weapon)}
                       className="roll-btn"
+                      title={`Roll ${weapon.name} attack`}
                     >
-                      Roll Attack
+                      🎲
                     </button>
                     <button 
                       onClick={() => rollDamage(weapon)}
                       className="roll-btn"
+                      title={`Roll ${weapon.name} damage`}
                     >
-                      Roll Damage
+                      ⚔️
                     </button>
                   </div>
                 </div>
@@ -832,8 +1113,78 @@ const CharacterSheet: React.FC = () => {
         title={dicePopup.title}
         diceNotation={dicePopup.diceNotation}
         modifiers={dicePopup.modifiers}
-        onRollComplete={handleRollComplete}
+        onRollComplete={dicePopup.onRollComplete}
       />
+      
+      {/* Tooltip */}
+      {tooltip.isVisible && (
+        <div 
+          className="tooltip"
+          style={{
+            left: tooltip.x + 10,
+            top: tooltip.y - 40
+          }}
+        >
+          {tooltip.text}
+        </div>
+      )}
+      
+      {/* Hit Dice Spending Interface */}
+      {hitDiceSpending.isOpen && (
+        <div className="hit-dice-overlay" onClick={closeHitDiceSpending}>
+          <div className="hit-dice-popup" onClick={(e) => e.stopPropagation()}>
+            <div className="hit-dice-header">
+              <h3>Spend Hit Dice</h3>
+              <button className="close-button" onClick={closeHitDiceSpending}>×</button>
+            </div>
+            
+            <div className="hit-dice-content">
+              <div className="hit-dice-info">
+                <p>Available Hit Dice: <strong>{character.hitDiceTotal}</strong></p>
+                <p>Current HP: <strong>{character.hitPoints.current}/{character.hitPoints.maximum}</strong></p>
+                <p>Constitution Modifier: <strong>{getAbilityModifier(character.constitution) >= 0 ? '+' : ''}{getAbilityModifier(character.constitution)}</strong></p>
+              </div>
+              
+              <div className="hit-dice-controls">
+                <div className="dice-selector">
+                  <label>Number of dice to spend:</label>
+                  <input
+                    type="number"
+                    min="1"
+                    max={parseInt(character.hitDiceTotal.match(/^\d+/)?.[0] || '1')}
+                    value={hitDiceSpending.diceToSpend}
+                    onChange={(e) => setHitDiceSpending(prev => ({
+                      ...prev,
+                      diceToSpend: Math.max(1, Math.min(parseInt(character.hitDiceTotal.match(/^\d+/)?.[0] || '1'), parseInt(e.target.value) || 1))
+                    }))}
+                  />
+                </div>
+                
+                <div className="hit-dice-actions">
+                  {hitDiceSpending.result === null ? (
+                    <button 
+                      onClick={rollHitDice}
+                      className="roll-hit-dice-btn"
+                    >
+                      Roll Hit Dice
+                    </button>
+                  ) : (
+                    <div className="healing-result">
+                      <p>Healing: <strong>{hitDiceSpending.result} HP</strong></p>
+                      <button 
+                        onClick={applyHitDiceHealing}
+                        className="apply-healing-btn"
+                      >
+                        Apply Healing
+                      </button>
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

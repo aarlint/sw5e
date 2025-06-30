@@ -5,15 +5,17 @@
 }
 
 body {
-  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-  background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%);
-  color: #e8e8e8;
+  font-family: 'Courier New', monospace;
+  background: #1a1a1a;
+  color: #fff;
   min-height: 100vh;
+  font-size: 12px;
+  line-height: 1.2;
 }
 
 .App {
   min-height: 100vh;
-  padding: 20px;
+  padding: 10px;
 }
 
 .App-logo {
@@ -29,46 +31,38 @@ body {
 
 .App-header {
   text-align: center;
-  margin-bottom: 30px;
-  padding: 20px;
-  background: rgba(255, 255, 255, 0.1);
-  border-radius: 15px;
-  backdrop-filter: blur(10px);
-  border: 1px solid rgba(255, 255, 255, 0.2);
+  margin-bottom: 15px;
+  padding: 15px;
+  background: #2a2a2a;
+  border: 1px solid #444;
   display: flex;
   justify-content: space-between;
   align-items: center;
   flex-wrap: wrap;
-  gap: 20px;
+  gap: 15px;
 }
 
 .App-header h1 {
-  font-size: 2.5rem;
-  font-weight: 700;
-  background: linear-gradient(45deg, #ffd700, #ffed4e);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  background-clip: text;
-  text-shadow: 0 0 30px rgba(255, 215, 0, 0.3);
+  font-size: 18px;
+  font-weight: bold;
+  color: #fff;
   margin: 0;
+  text-transform: uppercase;
 }
 
 .new-character-btn {
-  background: linear-gradient(45deg, #2ed573, #7bed9f);
-  color: white;
-  border: none;
-  padding: 12px 24px;
-  border-radius: 8px;
-  font-weight: 600;
-  font-size: 1rem;
+  background: #444;
+  color: #fff;
+  border: 1px solid #666;
+  padding: 8px 16px;
+  font-weight: bold;
+  font-size: 11px;
   cursor: pointer;
-  transition: all 0.3s ease;
-  box-shadow: 0 6px 20px rgba(46, 213, 115, 0.3);
+  text-transform: uppercase;
 }
 
 .new-character-btn:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 10px 30px rgba(46, 213, 115, 0.5);
+  background: #555;
 }
 
 .App-link {
@@ -95,23 +89,21 @@ main {
 }
 
 ::-webkit-scrollbar-track {
-  background: rgba(255, 255, 255, 0.1);
-  border-radius: 4px;
+  background: #333;
 }
 
 ::-webkit-scrollbar-thumb {
-  background: rgba(255, 215, 0, 0.5);
-  border-radius: 4px;
+  background: #555;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: rgba(255, 215, 0, 0.7);
+  background: #666;
 }
 
 /* Responsive Design */
 @media (max-width: 768px) {
   .App {
-    padding: 10px;
+    padding: 5px;
   }
   
   .App-header {
@@ -120,12 +112,12 @@ main {
   }
   
   .App-header h1 {
-    font-size: 2rem;
+    font-size: 16px;
   }
 }
 
 @media (max-width: 480px) {
   .App-header h1 {
-    font-size: 1.5rem;
+    font-size: 14px;
   }
 }
