@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import './CharacterSheet.css';
 import DiceRollPopup from './DiceRollPopup';
+import PartyManager from './PartyManager';
 
 interface CharacterData {
   id: string;
@@ -265,6 +266,14 @@ const CharacterSheet: React.FC = () => {
     currentValue: 'd8'
   });
 
+  // Generate unique ID for character if it doesn't have one
+  useEffect(() => {
+    if (!character.id) {
+      const newId = 'char_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
+      setCharacter(prev => ({ ...prev, id: newId }));
+    }
+  }, [character.id]);
+
   // Load character data from localStorage on component mount
   useEffect(() => {
     const savedCharacter = localStorage.getItem('starWarsCharacter');
@@ -273,7 +282,7 @@ const CharacterSheet: React.FC = () => {
       
       // Ensure all required fields exist with default values for backward compatibility
       const characterWithDefaults = {
-        id: loadedCharacter.id || '',
+        id: loadedCharacter.id || 'char_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9),
         name: loadedCharacter.name || '',
         level: loadedCharacter.level || 1,
         class: loadedCharacter.class || '',
@@ -736,8 +745,29 @@ const CharacterSheet: React.FC = () => {
     closeDieSelector();
   };
 
+  // Convert character to format expected by party service
+  const getPartyCharacterData = () => ({
+    id: character.id,
+    name: character.name,
+    level: character.level,
+    class: character.class,
+    hitPoints: character.hitPoints,
+    armorClass: character.armorClass,
+    initiative: character.initiative,
+    deathSaves: character.deathSaves
+  });
+
   return (
     <div className="character-sheet">
+      {/* Party Manager */}
+      <PartyManager 
+        currentCharacter={getPartyCharacterData()}
+        onCharacterUpdate={(updatedCharacter) => {
+          // This callback can be used if we need to sync changes from party back to character
+          // For now, the party system is read-only display of character data
+        }}
+      />
+
       <div className="sheet-container">
         {/* Header Section */}
         <section className="header-section">
