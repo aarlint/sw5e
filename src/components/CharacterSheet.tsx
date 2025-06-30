@@ -84,6 +84,14 @@ interface CharacterData {
   // Metadata
   createdAt: string;
   lastModified: string;
+  
+  // Initiative roll (optional)
+  initiativeRoll?: {
+    total: number;
+    roll: number;
+    modifier: number;
+    timestamp: number;
+  };
 }
 
 interface Weapon {
@@ -767,11 +775,48 @@ const CharacterSheet: React.FC = () => {
     name: character.name,
     level: character.level,
     class: character.class,
-    hitPoints: character.hitPoints,
+    background: character.background,
+    species: character.species,
+    alignment: character.alignment,
+    experiencePoints: character.experiencePoints,
+    strength: character.strength,
+    dexterity: character.dexterity,
+    constitution: character.constitution,
+    intelligence: character.intelligence,
+    wisdom: character.wisdom,
+    charisma: character.charisma,
     armorClass: character.armorClass,
     initiative: character.initiative,
-    deathSaves: character.deathSaves
-  }), [character.id, character.name, character.level, character.class, character.hitPoints, character.armorClass, character.initiative, character.deathSaves]);
+    speed: character.speed,
+    hitPoints: character.hitPoints,
+    hitDice: character.hitDice,
+    hitDiceTotal: character.hitDiceTotal,
+    deathSaves: character.deathSaves,
+    weapons: character.weapons,
+    skills: character.skills,
+    proficiencies: character.proficiencies,
+    features: character.features,
+    credits: character.credits,
+    forcePoints: character.forcePoints,
+    techPoints: character.techPoints,
+    exhaustion: character.exhaustion,
+    equipment: character.equipment,
+    personality: character.personality,
+    notes: character.notes,
+    createdAt: character.createdAt,
+    lastModified: character.lastModified,
+    initiativeRoll: character.initiativeRoll
+  }), [
+    character.id, character.name, character.level, character.class, character.background,
+    character.species, character.alignment, character.experiencePoints, character.strength,
+    character.dexterity, character.constitution, character.intelligence, character.wisdom,
+    character.charisma, character.armorClass, character.initiative, character.speed,
+    character.hitPoints, character.hitDice, character.hitDiceTotal, character.deathSaves,
+    character.weapons, character.skills, character.proficiencies, character.features,
+    character.credits, character.forcePoints, character.techPoints, character.exhaustion,
+    character.equipment, character.personality, character.notes, character.createdAt,
+    character.lastModified, character.initiativeRoll
+  ]);
 
   return (
     <div className="character-sheet">
