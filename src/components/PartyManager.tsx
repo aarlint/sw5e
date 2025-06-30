@@ -17,7 +17,6 @@ const PartyManager: React.FC<PartyManagerProps> = ({ currentCharacter, onCharact
   const [error, setError] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const [connectionStatus, setConnectionStatus] = useState<'connected' | 'connecting' | 'disconnected'>('disconnected');
-  const [initiativeOrder, setInitiativeOrder] = useState<string[]>([]);
 
   const handleJoinParty = useCallback(async (code?: string, showMessage = true) => {
     const partyCode = code || joinCode;
@@ -148,6 +147,10 @@ const PartyManager: React.FC<PartyManagerProps> = ({ currentCharacter, onCharact
       }
     };
 
+    const handleConnectionStatus = (status: 'connected' | 'connecting' | 'disconnected') => {
+      setConnectionStatus(status);
+    };
+
     const handleInitiativeRolled = (data: { characterId: string; initiativeRoll: any }) => {
       setSuccessMessage(`${data.characterId === currentCharacter.id ? 'You' : 'A party member'} rolled initiative: ${data.initiativeRoll.total} (${data.initiativeRoll.roll} + ${data.initiativeRoll.modifier >= 0 ? '+' : ''}${data.initiativeRoll.modifier})`);
     };
@@ -155,6 +158,7 @@ const PartyManager: React.FC<PartyManagerProps> = ({ currentCharacter, onCharact
     partyService.on('partyUpdate', handlePartyUpdate);
     partyService.on('error', handleError);
     partyService.on('requestCharacterData', handleRequestCharacterData);
+    partyService.on('connectionStatus', handleConnectionStatus);
     partyService.on('initiativeRolled', handleInitiativeRolled);
 
     // Check if already in a party from localStorage
@@ -167,6 +171,7 @@ const PartyManager: React.FC<PartyManagerProps> = ({ currentCharacter, onCharact
       partyService.off('partyUpdate', handlePartyUpdate);
       partyService.off('error', handleError);
       partyService.off('requestCharacterData', handleRequestCharacterData);
+      partyService.off('connectionStatus', handleConnectionStatus);
       partyService.off('initiativeRolled', handleInitiativeRolled);
     };
   }, [currentCharacter.id, handleJoinParty]);
