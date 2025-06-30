@@ -151,63 +151,8 @@ const calculateMaxHP = (level: number, className: string, constitution: number):
   return Math.max(1, maxHP); // Minimum 1 HP
 };
 
-// Custom hook to ensure character updates are broadcast to party
-const useCharacterWithPartySync = (initialCharacter: CharacterData) => {
-  const [character, setCharacterState] = useState<CharacterData>(initialCharacter);
-  const [updateTimeout, setUpdateTimeout] = useState<NodeJS.Timeout | null>(null);
-
-  const setCharacter = useCallback((updater: CharacterData | ((prev: CharacterData) => CharacterData)) => {
-    setCharacterState(prev => {
-      const newCharacter = typeof updater === 'function' ? updater(prev) : updater;
-      
-      // Broadcast to party system if character has an ID
-      if (newCharacter.id) {
-        // Clear any existing timeout
-        if (updateTimeout) {
-          clearTimeout(updateTimeout);
-        }
-        
-        // Debounce the party update to avoid too many rapid messages
-        const timeout = setTimeout(() => {
-          const partyCharacterData = {
-            id: newCharacter.id,
-            name: newCharacter.name,
-            level: newCharacter.level,
-            class: newCharacter.class,
-            hitPoints: newCharacter.hitPoints,
-            armorClass: newCharacter.armorClass,
-            initiative: newCharacter.initiative,
-            deathSaves: newCharacter.deathSaves
-          };
-          
-          // Broadcast character updates to party system
-          partyService.updateCharacter(partyCharacterData).catch(error => {
-            // Silently fail if partyService is not available (e.g., if not in a party)
-            console.debug('Party service not available for character update:', error);
-          });
-        }, 300); // 300ms debounce
-        
-        setUpdateTimeout(timeout);
-      }
-      
-      return newCharacter;
-    });
-  }, [updateTimeout]);
-
-  // Cleanup timeout on unmount
-  useEffect(() => {
-    return () => {
-      if (updateTimeout) {
-        clearTimeout(updateTimeout);
-      }
-    };
-  }, [updateTimeout]);
-
-  return [character, setCharacter] as const;
-};
-
 const CharacterSheet: React.FC = () => {
-  const [character, setCharacter] = useCharacterWithPartySync({
+  const [character, setCharacter] = useState<CharacterData>({
     id: '',
     name: '',
     level: 1,
@@ -328,7 +273,7 @@ const CharacterSheet: React.FC = () => {
       const newId = 'char_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
       setCharacter(prev => ({ ...prev, id: newId }));
     }
-  }, [character.id, setCharacter]);
+  }, [character.id]);
 
   // Load character data from localStorage on component mount
   useEffect(() => {
@@ -406,7 +351,7 @@ const CharacterSheet: React.FC = () => {
       
       setCharacter(characterWithDefaults);
     }
-  }, [setCharacter]);
+  }, []);
 
   // Save character data to localStorage and update characters list whenever it changes
   useEffect(() => {
@@ -424,6 +369,32 @@ const CharacterSheet: React.FC = () => {
       }
     }
   }, [character]);
+
+  // Debounced party updates to avoid too many rapid messages
+  useEffect(() => {
+    if (!character.id) return;
+
+    const timeout = setTimeout(() => {
+      const partyCharacterData = {
+        id: character.id,
+        name: character.name,
+        level: character.level,
+        class: character.class,
+        hitPoints: character.hitPoints,
+        armorClass: character.armorClass,
+        initiative: character.initiative,
+        deathSaves: character.deathSaves
+      };
+      
+      // Broadcast character updates to party system
+      partyService.updateCharacter(partyCharacterData).catch(error => {
+        // Silently fail if partyService is not available (e.g., if not in a party)
+        console.debug('Party service not available for character update:', error);
+      });
+    }, 300); // 300ms debounce
+
+    return () => clearTimeout(timeout);
+  }, [character.id, character.name, character.level, character.class, character.hitPoints, character.armorClass, character.initiative, character.deathSaves]);
 
   const getAbilityModifier = (score: number): number => {
     return Math.floor((score - 10) / 2);
