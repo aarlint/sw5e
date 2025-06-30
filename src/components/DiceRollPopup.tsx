@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import './DiceRollPopup.css';
 
 interface DiceRollPopupProps {
@@ -37,29 +37,8 @@ const DiceRollPopup: React.FC<DiceRollPopupProps> = ({
     return { count: parseInt(match[1]), sides: parseInt(match[2]) };
   };
 
-  // Initialize dice when popup opens
-  useEffect(() => {
-    if (isOpen) {
-      const { count, sides } = parseDiceNotation(diceNotation);
-      const newDice: Die[] = Array.from({ length: count }, (_, i) => ({
-        id: `die-${i}`,
-        sides,
-        value: 1,
-        isRolling: false
-      }));
-      setDice(newDice);
-      setFinalResult(null);
-      setRollHistory([]);
-      
-      // Automatically start rolling after a short delay
-      setTimeout(() => {
-        rollAllDice();
-      }, 300);
-    }
-  }, [isOpen, diceNotation]);
-
   // Roll animation for a single die
-  const rollDie = (die: Die): Promise<number> => {
+  const rollDie = useCallback((die: Die): Promise<number> => {
     return new Promise((resolve) => {
       const finalValue = Math.floor(Math.random() * die.sides) + 1;
       const rollDuration = 1000 + Math.random() * 500; // 1-1.5 seconds
@@ -82,10 +61,10 @@ const DiceRollPopup: React.FC<DiceRollPopupProps> = ({
         }
       }, updateInterval);
     });
-  };
+  }, []);
 
   // Roll all dice with staggered animation
-  const rollAllDice = async () => {
+  const rollAllDice = useCallback(async () => {
     if (isRolling) return;
     
     setIsRolling(true);
@@ -125,7 +104,28 @@ const DiceRollPopup: React.FC<DiceRollPopupProps> = ({
     
     setIsRolling(false);
     onRollComplete(total);
-  };
+  }, [dice, isRolling, modifiers, title, onRollComplete, rollDie]);
+
+  // Initialize dice when popup opens
+  useEffect(() => {
+    if (isOpen) {
+      const { count, sides } = parseDiceNotation(diceNotation);
+      const newDice: Die[] = Array.from({ length: count }, (_, i) => ({
+        id: `die-${i}`,
+        sides,
+        value: 1,
+        isRolling: false
+      }));
+      setDice(newDice);
+      setFinalResult(null);
+      setRollHistory([]);
+      
+      // Automatically start rolling after a short delay
+      setTimeout(() => {
+        rollAllDice();
+      }, 300);
+    }
+  }, [isOpen, diceNotation, rollAllDice]);
 
   // Close popup with escape key
   useEffect(() => {
