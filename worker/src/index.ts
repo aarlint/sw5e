@@ -47,6 +47,7 @@ interface WebSocketMessage {
   partyCode?: string;
   characterId?: string;
   characterData?: CharacterData;
+  partyMember?: PartyMember;
 }
 
 interface WebSocketConnection {
@@ -191,10 +192,10 @@ async function handleWebSocketMessage(webSocket: WebSocket, message: WebSocketMe
       }
 
       case 'update': {
-        if (!message.partyCode || !message.characterData) {
+        if (!message.partyCode || (!message.characterData && !message.partyMember)) {
           webSocket.send(JSON.stringify({
             type: 'error',
-            error: 'Missing partyCode or characterData'
+            error: 'Missing partyCode or character data'
           }));
           return;
         }
@@ -210,14 +211,41 @@ async function handleWebSocketMessage(webSocket: WebSocket, message: WebSocketMe
 
         const partyData: PartyData = JSON.parse(partyDataStr);
         
-        if (partyData.members[message.characterData.id]) {
-          partyData.members[message.characterData.id].characterData = message.characterData;
-          partyData.members[message.characterData.id].lastSeen = Date.now();
+        // Handle both legacy characterData and new partyMember formats
+        let characterId: string;
+        let updatedPartyMember: PartyMember;
+        
+        if (message.partyMember) {
+          // New format: complete party member data
+          characterId = message.partyMember.characterId;
+          updatedPartyMember = {
+            ...message.partyMember,
+            lastSeen: Date.now()
+          };
+        } else if (message.characterData) {
+          // Legacy format: just character data (for backward compatibility)
+          characterId = message.characterData.id;
+          updatedPartyMember = {
+            characterId: message.characterData.id,
+            characterData: message.characterData,
+            lastSeen: Date.now()
+          };
+        } else {
+          webSocket.send(JSON.stringify({
+            type: 'error',
+            error: 'No valid character data provided'
+          }));
+          return;
+        }
+        
+        if (partyData.members[characterId]) {
+          // Update the party member with complete data
+          partyData.members[characterId] = updatedPartyMember;
           partyData.lastUpdated = Date.now();
           
           await env.PARTY_STORAGE.put(`party:${message.partyCode}`, JSON.stringify(partyData));
           
-          // Broadcast to all party members
+          // Broadcast complete party data to all members
           await broadcastToParty(message.partyCode, {
             type: 'member_updated',
             partyData: {
@@ -232,10 +260,10 @@ async function handleWebSocketMessage(webSocket: WebSocket, message: WebSocketMe
       }
 
       case 'roll_initiative': {
-        if (!message.partyCode || !message.characterData) {
+        if (!message.partyCode || (!message.characterData && !message.partyMember)) {
           webSocket.send(JSON.stringify({
             type: 'error',
-            error: 'Missing partyCode or characterData'
+            error: 'Missing partyCode or character data'
           }));
           return;
         }
@@ -251,10 +279,36 @@ async function handleWebSocketMessage(webSocket: WebSocket, message: WebSocketMe
 
         const partyData: PartyData = JSON.parse(partyDataStr);
         
-        if (partyData.members[message.characterData.id]) {
-          // Update the character data with the initiative roll
-          partyData.members[message.characterData.id].characterData = message.characterData;
-          partyData.members[message.characterData.id].lastSeen = Date.now();
+        // Handle both legacy characterData and new partyMember formats
+        let characterId: string;
+        let updatedPartyMember: PartyMember;
+        
+        if (message.partyMember) {
+          // New format: complete party member data
+          characterId = message.partyMember.characterId;
+          updatedPartyMember = {
+            ...message.partyMember,
+            lastSeen: Date.now()
+          };
+        } else if (message.characterData) {
+          // Legacy format: just character data (for backward compatibility)
+          characterId = message.characterData.id;
+          updatedPartyMember = {
+            characterId: message.characterData.id,
+            characterData: message.characterData,
+            lastSeen: Date.now()
+          };
+        } else {
+          webSocket.send(JSON.stringify({
+            type: 'error',
+            error: 'No valid character data provided'
+          }));
+          return;
+        }
+        
+        if (partyData.members[characterId]) {
+          // Update the party member with complete data
+          partyData.members[characterId] = updatedPartyMember;
           partyData.lastUpdated = Date.now();
           
           await env.PARTY_STORAGE.put(`party:${message.partyCode}`, JSON.stringify(partyData));
@@ -262,8 +316,8 @@ async function handleWebSocketMessage(webSocket: WebSocket, message: WebSocketMe
           // Broadcast to all party members
           await broadcastToParty(message.partyCode, {
             type: 'initiative_rolled',
-            characterId: message.characterData.id,
-            initiativeRoll: message.characterData.initiativeRoll,
+            characterId: characterId,
+            initiativeRoll: updatedPartyMember.characterData.initiativeRoll,
             partyData: {
               code: partyData.code,
               members: Object.values(partyData.members),

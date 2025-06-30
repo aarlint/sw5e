@@ -40,6 +40,7 @@ interface WebSocketMessage {
   partyCode?: string;
   characterId?: string;
   characterData?: CharacterData;
+  partyMember?: PartyMember;
 }
 
 class PartyService {
@@ -259,13 +260,20 @@ class PartyService {
   }
 
   async updateCharacter(characterData: CharacterData) {
-    if (!this.currentPartyCode) return;
+    if (!this.currentPartyCode || !this.currentCharacterId) return;
 
     try {
+      // Create complete party member data
+      const partyMember: PartyMember = {
+        characterId: this.currentCharacterId,
+        characterData: characterData,
+        lastSeen: Date.now()
+      };
+
       this.sendWebSocketMessage({
         type: 'update',
         partyCode: this.currentPartyCode,
-        characterData
+        partyMember: partyMember
       });
     } catch (error) {
       console.error('Failed to update character:', error);
@@ -354,7 +362,7 @@ class PartyService {
   }
 
   async rollInitiative(characterData: CharacterData): Promise<void> {
-    if (!this.currentPartyCode) return;
+    if (!this.currentPartyCode || !this.currentCharacterId) return;
 
     try {
       // Calculate initiative roll
@@ -373,10 +381,17 @@ class PartyService {
         }
       };
 
+      // Create complete party member data
+      const partyMember: PartyMember = {
+        characterId: this.currentCharacterId,
+        characterData: updatedCharacterData,
+        lastSeen: Date.now()
+      };
+
       this.sendWebSocketMessage({
         type: 'roll_initiative',
         partyCode: this.currentPartyCode,
-        characterData: updatedCharacterData
+        partyMember: partyMember
       });
     } catch (error) {
       console.error('Failed to roll initiative:', error);
