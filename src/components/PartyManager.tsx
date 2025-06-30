@@ -16,6 +16,7 @@ const PartyManager: React.FC<PartyManagerProps> = ({ currentCharacter, onCharact
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
+  const [connectionStatus, setConnectionStatus] = useState<'connected' | 'connecting' | 'disconnected'>('disconnected');
 
   const handleJoinParty = useCallback(async (code?: string, showMessage = true) => {
     const partyCode = code || joinCode;
@@ -55,11 +56,34 @@ const PartyManager: React.FC<PartyManagerProps> = ({ currentCharacter, onCharact
   }, [joinCode, currentCharacter]);
 
   useEffect(() => {
-    const handlePartyUpdate = (data: PartyData) => {
+    const handlePartyUpdate = (data: PartyData | null) => {
       setPartyData(data);
+      setIsInParty(!!data);
+      
+      if (!data) {
+        // Party was left or doesn't exist
+        localStorage.removeItem('currentPartyCode');
+      }
+    };
+
+    const handleError = (errorMessage: string) => {
+      setError(errorMessage);
+    };
+
+    const handleRequestCharacterData = (characterId: string) => {
+      // When reconnecting, the service needs the current character data
+      if (characterId === currentCharacter.id && currentCharacter.id) {
+        // Rejoin the party with current character data
+        const savedPartyCode = localStorage.getItem('currentPartyCode');
+        if (savedPartyCode) {
+          handleJoinParty(savedPartyCode, false);
+        }
+      }
     };
 
     partyService.on('partyUpdate', handlePartyUpdate);
+    partyService.on('error', handleError);
+    partyService.on('requestCharacterData', handleRequestCharacterData);
 
     // Check if already in a party from localStorage
     const savedPartyCode = localStorage.getItem('currentPartyCode');
@@ -69,6 +93,8 @@ const PartyManager: React.FC<PartyManagerProps> = ({ currentCharacter, onCharact
 
     return () => {
       partyService.off('partyUpdate', handlePartyUpdate);
+      partyService.off('error', handleError);
+      partyService.off('requestCharacterData', handleRequestCharacterData);
     };
   }, [currentCharacter.id, handleJoinParty]);
 

@@ -2,4 +2,8 @@ name = "sw5e-party-worker"
 main = "src/index.ts"
 compatibility_date = "2024-01-15"
 
+[[kv_namespaces]]
+binding = "PARTY_STORAGE"
+id = "7176e5cd76794571928cbd5aec1101f0"
+
 # KV namespace will be added after creation 

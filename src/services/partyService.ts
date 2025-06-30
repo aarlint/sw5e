@@ -29,14 +29,23 @@ interface PartyData {
   lastUpdated: number;
 }
 
+interface WebSocketMessage {
+  type: 'join' | 'leave' | 'update' | 'heartbeat' | 'create';
+  partyCode?: string;
+  characterId?: string;
+  characterData?: CharacterData;
+}
+
 class PartyService {
   private workerUrl: string = 'https://sw5e-party-worker.stoic.workers.dev';
   private eventListeners: Map<string, Function[]> = new Map();
   private currentPartyCode: string | null = null;
   private currentCharacterId: string | null = null;
-  private lastKnownUpdate: number = 0;
-  private pollingInterval: NodeJS.Timeout | null = null;
+  private webSocket: WebSocket | null = null;
   private heartbeatInterval: NodeJS.Timeout | null = null;
+  private reconnectAttempts: number = 0;
+  private maxReconnectAttempts: number = 5;
+  private reconnectDelay: number = 1000;
 
   constructor() {
     // For development, you can use a local worker URL
@@ -45,30 +54,132 @@ class PartyService {
     }
   }
 
+  private connectWebSocket(): Promise<void> {
+    return new Promise((resolve, reject) => {
+      try {
+        const wsUrl = this.workerUrl.replace('http', 'ws') + '/ws';
+        this.webSocket = new WebSocket(wsUrl);
+
+        this.webSocket.onopen = () => {
+          console.log('WebSocket connected');
+          this.reconnectAttempts = 0;
+          resolve();
+        };
+
+        this.webSocket.onmessage = (event) => {
+          try {
+            const message = JSON.parse(event.data);
+            this.handleWebSocketMessage(message);
+          } catch (error) {
+            console.error('Failed to parse WebSocket message:', error);
+          }
+        };
+
+        this.webSocket.onclose = () => {
+          console.log('WebSocket disconnected');
+          this.handleDisconnect();
+        };
+
+        this.webSocket.onerror = (error) => {
+          console.error('WebSocket error:', error);
+          reject(error);
+        };
+      } catch (error) {
+        reject(error);
+      }
+    });
+  }
+
+  private handleWebSocketMessage(message: any) {
+    switch (message.type) {
+      case 'party_created':
+        this.emit('partyUpdate', message.partyData);
+        break;
+      
+      case 'member_joined':
+      case 'member_updated':
+      case 'member_left':
+        this.emit('partyUpdate', message.partyData);
+        break;
+      
+      case 'left_party':
+        this.emit('partyUpdate', null);
+        break;
+      
+      case 'error':
+        console.error('WebSocket error:', message.error);
+        this.emit('error', message.error);
+        break;
+      
+      default:
+        console.log('Unknown WebSocket message type:', message.type);
+    }
+  }
+
+  private handleDisconnect() {
+    if (this.reconnectAttempts < this.maxReconnectAttempts && this.currentPartyCode) {
+      this.reconnectAttempts++;
+      console.log(`Attempting to reconnect (${this.reconnectAttempts}/${this.maxReconnectAttempts})...`);
+      
+      setTimeout(() => {
+        this.connectWebSocket().then(() => {
+          // Rejoin the party after reconnection
+          if (this.currentPartyCode && this.currentCharacterId) {
+            this.rejoinParty();
+          }
+        }).catch((error) => {
+          console.error('Failed to reconnect:', error);
+        });
+      }, this.reconnectDelay * this.reconnectAttempts);
+    }
+  }
+
+  private async rejoinParty() {
+    if (!this.currentPartyCode || !this.currentCharacterId || !this.webSocket) return;
+
+    // Get character data from storage or emit an event to request it
+    this.emit('requestCharacterData', this.currentCharacterId);
+  }
+
+  private sendWebSocketMessage(message: WebSocketMessage) {
+    if (this.webSocket && this.webSocket.readyState === WebSocket.OPEN) {
+      this.webSocket.send(JSON.stringify(message));
+    } else {
+      console.error('WebSocket is not connected');
+      throw new Error('WebSocket is not connected');
+    }
+  }
+
   async createParty(characterData: CharacterData): Promise<{ success: boolean; partyCode?: string; error?: string }> {
     try {
-      const response = await fetch(`${this.workerUrl}/api/party/create`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ characterData }),
+      if (!this.webSocket || this.webSocket.readyState !== WebSocket.OPEN) {
+        await this.connectWebSocket();
+      }
+
+      this.currentCharacterId = characterData.id;
+      
+      this.sendWebSocketMessage({
+        type: 'create',
+        characterData
       });
 
-      const data = await response.json();
-      
-      if (data.success) {
-        this.currentPartyCode = data.partyCode;
-        this.currentCharacterId = characterData.id;
-        this.lastKnownUpdate = data.partyData.lastUpdated;
-        this.startPolling();
-        this.startHeartbeatTimer();
-        
-        // Emit initial party update
-        this.emit('partyUpdate', data.partyData);
-      }
-      
-      return data;
+      // Return a promise that will be resolved when we get the party_created response
+      return new Promise((resolve) => {
+        const handlePartyCreated = (partyData: PartyData) => {
+          this.off('partyUpdate', handlePartyCreated);
+          this.currentPartyCode = partyData.code;
+          this.startHeartbeatTimer();
+          resolve({ success: true, partyCode: partyData.code });
+        };
+
+        const handleError = (error: string) => {
+          this.off('error', handleError);
+          resolve({ success: false, error });
+        };
+
+        this.on('partyUpdate', handlePartyCreated);
+        this.on('error', handleError);
+      });
     } catch (error) {
       console.error('Failed to create party:', error);
       return { success: false, error: 'Failed to create party' };
@@ -77,28 +188,35 @@ class PartyService {
 
   async joinParty(partyCode: string, characterData: CharacterData): Promise<{ success: boolean; error?: string }> {
     try {
-      const response = await fetch(`${this.workerUrl}/api/party/join`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ partyCode, characterData }),
+      if (!this.webSocket || this.webSocket.readyState !== WebSocket.OPEN) {
+        await this.connectWebSocket();
+      }
+
+      this.currentPartyCode = partyCode;
+      this.currentCharacterId = characterData.id;
+      
+      this.sendWebSocketMessage({
+        type: 'join',
+        partyCode,
+        characterData
       });
 
-      const data = await response.json();
-      
-      if (data.success) {
-        this.currentPartyCode = partyCode;
-        this.currentCharacterId = characterData.id;
-        this.lastKnownUpdate = data.partyData.lastUpdated;
-        this.startPolling();
-        this.startHeartbeatTimer();
-        
-        // Emit initial party update
-        this.emit('partyUpdate', data.partyData);
-      }
-      
-      return data;
+      // Return a promise that will be resolved when we get the member_joined response
+      return new Promise((resolve) => {
+        const handlePartyUpdate = (partyData: PartyData) => {
+          this.off('partyUpdate', handlePartyUpdate);
+          this.startHeartbeatTimer();
+          resolve({ success: true });
+        };
+
+        const handleError = (error: string) => {
+          this.off('error', handleError);
+          resolve({ success: false, error });
+        };
+
+        this.on('partyUpdate', handlePartyUpdate);
+        this.on('error', handleError);
+      });
     } catch (error) {
       console.error('Failed to join party:', error);
       return { success: false, error: 'Failed to join party' };
@@ -107,13 +225,11 @@ class PartyService {
 
   async leaveParty(characterId: string): Promise<void> {
     try {
-      if (this.currentPartyCode) {
-        await fetch(`${this.workerUrl}/api/party/leave`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({ partyCode: this.currentPartyCode, characterId }),
+      if (this.webSocket && this.currentPartyCode) {
+        this.sendWebSocketMessage({
+          type: 'leave',
+          partyCode: this.currentPartyCode,
+          characterId
         });
       }
     } catch (error) {
@@ -127,71 +243,14 @@ class PartyService {
     if (!this.currentPartyCode) return;
 
     try {
-      await fetch(`${this.workerUrl}/api/party/update`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          partyCode: this.currentPartyCode,
-          characterData
-        }),
+      this.sendWebSocketMessage({
+        type: 'update',
+        partyCode: this.currentPartyCode,
+        characterData
       });
     } catch (error) {
       console.error('Failed to update character:', error);
     }
-  }
-
-  private async pollForUpdates() {
-    if (!this.currentPartyCode) return;
-
-    try {
-      const response = await fetch(`${this.workerUrl}/api/party/${this.currentPartyCode}/status`);
-      
-      if (response.ok) {
-        const data = await response.json();
-        
-        if (data.success && data.partyData.lastUpdated > this.lastKnownUpdate) {
-          this.lastKnownUpdate = data.partyData.lastUpdated;
-          this.emit('partyUpdate', data.partyData);
-        }
-      }
-    } catch (error) {
-      console.error('Failed to poll for updates:', error);
-    }
-  }
-
-  private async sendHeartbeat() {
-    if (!this.currentPartyCode || !this.currentCharacterId) return;
-
-    try {
-      await fetch(`${this.workerUrl}/api/party/heartbeat`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          partyCode: this.currentPartyCode,
-          characterId: this.currentCharacterId
-        }),
-      });
-    } catch (error) {
-      console.error('Failed to send heartbeat:', error);
-    }
-  }
-
-  private startPolling() {
-    if (this.pollingInterval) {
-      clearInterval(this.pollingInterval);
-    }
-
-    // Poll every 3 seconds for updates
-    this.pollingInterval = setInterval(() => {
-      this.pollForUpdates();
-    }, 3000);
-
-    // Initial poll
-    this.pollForUpdates();
   }
 
   private startHeartbeatTimer() {
@@ -208,20 +267,34 @@ class PartyService {
     this.sendHeartbeat();
   }
 
-  disconnect() {
-    if (this.pollingInterval) {
-      clearInterval(this.pollingInterval);
-      this.pollingInterval = null;
-    }
+  private sendHeartbeat() {
+    if (!this.currentPartyCode || !this.currentCharacterId) return;
 
+    try {
+      this.sendWebSocketMessage({
+        type: 'heartbeat',
+        partyCode: this.currentPartyCode,
+        characterId: this.currentCharacterId
+      });
+    } catch (error) {
+      console.error('Failed to send heartbeat:', error);
+    }
+  }
+
+  disconnect() {
     if (this.heartbeatInterval) {
       clearInterval(this.heartbeatInterval);
       this.heartbeatInterval = null;
     }
 
+    if (this.webSocket) {
+      this.webSocket.close();
+      this.webSocket = null;
+    }
+
     this.currentPartyCode = null;
     this.currentCharacterId = null;
-    this.lastKnownUpdate = 0;
+    this.reconnectAttempts = 0;
   }
 
   // Event system for listening to party updates
@@ -255,7 +328,7 @@ class PartyService {
     }
   }
 
-  // Legacy method - no longer needed with polling
+  // Legacy method - kept for compatibility
   startHeartbeat() {
     // This method is called by existing code, but heartbeat is now automatic
   }
