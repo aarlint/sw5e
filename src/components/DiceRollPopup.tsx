@@ -43,8 +43,19 @@ const DiceRollPopup: React.FC<DiceRollPopupProps> = ({
     isRollingRef.current = isRolling;
   }, [isRolling]);
 
-  // Parse dice notation (e.g., "1d20" -> 1 die with 20 sides)
-  const parseDiceNotation = (notation: string): { count: number; sides: number } => {
+  // Parse dice notation (e.g., "1d20" -> 1 die with 20 sides, "2d20kh1" -> 2 dice with 20 sides, keep highest 1)
+  const parseDiceNotation = (notation: string): { count: number; sides: number; keepHighest?: number } => {
+    // Check for "keep highest" notation (e.g., "2d20kh1")
+    const khMatch = notation.match(/(\d+)d(\d+)kh(\d+)/);
+    if (khMatch) {
+      return { 
+        count: parseInt(khMatch[1]), 
+        sides: parseInt(khMatch[2]), 
+        keepHighest: parseInt(khMatch[3]) 
+      };
+    }
+    
+    // Regular dice notation
     const match = notation.match(/(\d+)d(\d+)/);
     if (!match) return { count: 1, sides: 20 };
     return { count: parseInt(match[1]), sides: parseInt(match[2]) };
@@ -106,18 +117,32 @@ const DiceRollPopup: React.FC<DiceRollPopupProps> = ({
       isRolling: false
     })));
     
-    // Calculate final result
-    const diceTotal = results.reduce((sum, value) => sum + value, 0);
+    // Calculate final result with keep highest logic
+    const { keepHighest } = parseDiceNotation(diceNotation);
+    let diceTotal: number;
+    
+    if (keepHighest && keepHighest < results.length) {
+      // Sort results in descending order and keep the highest ones
+      const sortedResults = [...results].sort((a, b) => b - a);
+      diceTotal = sortedResults.slice(0, keepHighest).reduce((sum, value) => sum + value, 0);
+    } else {
+      // Use all results
+      diceTotal = results.reduce((sum, value) => sum + value, 0);
+    }
+    
     const total = diceTotal + modifiers;
     setFinalResult(total);
     
-    // Add to roll history
-    const historyEntry = `${title}: ${diceTotal}${modifiers !== 0 ? ` + ${modifiers}` : ''} = ${total}`;
+    // Add to roll history with keep highest info if applicable
+    let historyEntry = `${title}: ${diceTotal}${modifiers !== 0 ? ` + ${modifiers}` : ''} = ${total}`;
+    if (keepHighest && keepHighest < results.length) {
+      historyEntry = `${title}: [${results.join(', ')}] → ${diceTotal}${modifiers !== 0 ? ` + ${modifiers}` : ''} = ${total} (kept highest ${keepHighest})`;
+    }
     setRollHistory(prev => [historyEntry, ...prev.slice(0, 4)]); // Keep last 5 rolls
     
     setIsRolling(false);
     onRollComplete(total);
-  }, [modifiers, title, onRollComplete, rollDie]);
+  }, [modifiers, title, onRollComplete, rollDie, diceNotation]);
 
   // Initialize dice when popup opens
   useEffect(() => {
@@ -168,6 +193,9 @@ const DiceRollPopup: React.FC<DiceRollPopupProps> = ({
           <p><strong>Dice:</strong> {diceNotation}</p>
           {modifiers !== 0 && (
             <p><strong>Modifiers:</strong> {modifiers > 0 ? '+' : ''}{modifiers}</p>
+          )}
+          {parseDiceNotation(diceNotation).keepHighest && (
+            <p><strong>Advantage:</strong> Rolling {parseDiceNotation(diceNotation).count}d{parseDiceNotation(diceNotation).sides}, keeping highest {parseDiceNotation(diceNotation).keepHighest}</p>
           )}
         </div>
         

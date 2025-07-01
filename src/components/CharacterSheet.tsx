@@ -454,6 +454,18 @@ const CharacterSheet: React.FC = () => {
     });
   };
 
+  const rollAttackWithAdvantage = (weapon: Weapon) => {
+    const modifiers = weapon.attackBonus;
+    
+    setDicePopup({
+      isOpen: true,
+      title: `${weapon.name} Attack (Advantage)`,
+      diceNotation: '2d20kh1', // Keep highest of 2d20
+      modifiers,
+      onRollComplete: handleRollComplete
+    });
+  };
+
   const rollDamage = (weapon: Weapon) => {
     setDicePopup({
       isOpen: true,
@@ -462,6 +474,27 @@ const CharacterSheet: React.FC = () => {
       modifiers: 0,
       onRollComplete: handleRollComplete
     });
+  };
+
+  const rollDamageWithAdvantage = (weapon: Weapon) => {
+    // For damage with advantage, we'll roll the damage dice twice and keep the higher result
+    const damageMatch = weapon.damage.match(/(\d+)d(\d+)/);
+    if (damageMatch) {
+      const numDice = parseInt(damageMatch[1]);
+      const dieSize = parseInt(damageMatch[2]);
+      const advantageNotation = `${numDice * 2}d${dieSize}kh${numDice}`; // Roll twice as many dice, keep highest numDice
+      
+      setDicePopup({
+        isOpen: true,
+        title: `${weapon.name} Damage (Advantage)`,
+        diceNotation: advantageNotation,
+        modifiers: 0,
+        onRollComplete: handleRollComplete
+      });
+    } else {
+      // Fallback to regular damage if notation is invalid
+      rollDamage(weapon);
+    }
   };
 
   const handleRollComplete = (result: number) => {
@@ -1312,11 +1345,25 @@ const CharacterSheet: React.FC = () => {
                       🎲
                     </button>
                     <button 
+                      onClick={() => rollAttackWithAdvantage(weapon)}
+                      className="roll-btn"
+                      title={`Roll ${weapon.name} attack (Advantage)`}
+                    >
+                      🎲🎲
+                    </button>
+                    <button 
                       onClick={() => rollDamage(weapon)}
                       className="roll-btn"
                       title={`Roll ${weapon.name} damage`}
                     >
                       ⚔️
+                    </button>
+                    <button 
+                      onClick={() => rollDamageWithAdvantage(weapon)}
+                      className="roll-btn"
+                      title={`Roll ${weapon.name} damage (Advantage)`}
+                    >
+                      ⚔️⚔️
                     </button>
                   </div>
                 </div>
