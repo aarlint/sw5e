@@ -23,9 +23,21 @@ const Navigation: React.FC<NavigationProps> = ({ currentPage, onNavigate }) => {
           </button>
           <button 
             className={`nav-link ${currentPage === 'character-management' ? 'active' : ''}`}
-            onClick={() => onNavigate('character-management')}
+            onClick={() => onNavigate('characters')}
           >
-            Character Management
+            Characters
+          </button>
+          <button 
+            className={`nav-link ${currentPage === 'game-management' ? 'active' : ''}`}
+            onClick={() => onNavigate('game-management')}
+          >
+            Game Management
+          </button>
+          <button 
+            className={`nav-link ${currentPage === 'admin' ? 'active' : ''}`}
+            onClick={() => onNavigate('admin')}
+          >
+            Admin
           </button>
         </div>
       </div>

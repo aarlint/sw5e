@@ -1,11 +1,12 @@
 /// <reference types="@cloudflare/workers-types" />
 
 export interface Env {
-  PARTY_STORAGE: KVNamespace;
+  PARTY_STORAGE: KVNamespace; // Keep for backward compatibility but rename in future
 }
 
 export interface CharacterData {
   id: string;
+  shortId?: string;
   name: string;
   level: number;
   class: string;
@@ -110,394 +111,650 @@ export interface Skill {
   bonus: number;
 }
 
-export interface PartyMember {
-  characterId: string;
-  characterData: CharacterData;
-  lastSeen: number;
+export interface MapPosition {
+  x: number;
+  y: number;
 }
 
-export interface PartyData {
+export interface Terrain {
+  id: string;
+  type: 'rock' | 'tree' | 'building' | 'water' | 'lava' | 'wall';
+  height: number;
+  position: MapPosition;
+  isPassable: boolean;
+}
+
+export interface Enemy {
+  id: string;
+  name: string;
+  level: number;
+  health: {
+    current: number;
+    maximum: number;
+  };
+  armorClass: number;
+  position: MapPosition;
+  type: 'droid' | 'beast' | 'humanoid' | 'vehicle';
+  initiative: number;
+  isActive: boolean;
+}
+
+export interface User {
+  id: string;
+  email: string;
+  name: string;
+  picture?: string;
+  lastSeen: number;
+  gamesPlayed: string[];
+  charactersCreated: string[];
+}
+
+export interface Player {
+  id: string;
+  characterId: string;
+  name: string;
+  position: MapPosition;
+  isActive: boolean;
+  userId: string;
+  userEmail?: string;
+  userName?: string;
+}
+
+export interface Game {
+  id: string;
+  name: string;
   code: string;
-  members: { [key: string]: PartyMember };
-  createdAt: number;
-  lastUpdated: number;
+  dungeonMasterId: string;
+  ownerId: string;
+  players: Player[];
+  enemies: Enemy[];
+  terrain: Terrain[];
+  mapSize: {
+    width: number;
+    height: number;
+  };
+  createdAt: string;
+  lastModified: string;
+}
+
+export interface GameState {
+  currentGame: Game | null;
+  isDungeonMaster: boolean;
+  currentPlayerId: string | null;
 }
 
 interface WebSocketMessage {
-  type: 'join' | 'leave' | 'update' | 'heartbeat' | 'create' | 'roll_initiative';
-  partyCode?: string;
-  characterId?: string;
+  type: 'game_create' | 'game_join' | 'game_update' | 'game_leave' | 'player_move' | 
+        'enemy_add' | 'enemy_move' | 'terrain_add' | 'terrain_remove' | 'user_login' | 
+        'character_save' | 'get_user_characters' | 'character_delete' | 'get_games' | 'character_deleted' | 'character_saved';
+  gameCode?: string;
+  gameData?: Game;
+  playerId?: string;
+  enemy?: Enemy;
+  terrain?: Terrain;
+  position?: MapPosition;
+  gameState?: GameState;
+  user?: User;
+  userId?: string;
   characterData?: CharacterData;
-  partyMember?: PartyMember;
+  characterId?: string;
 }
 
 interface WebSocketConnection {
-  partyCode: string;
-  characterId: string;
+  gameCode?: string;
+  playerId?: string;
+  isDungeonMaster?: boolean;
   webSocket: WebSocket;
 }
 
-// In-memory storage for WebSocket connections (will be reset on worker restart)
+// Store active WebSocket connections
 const connections = new Map<string, WebSocketConnection[]>();
 
-function generatePartyCode(): string {
-  return Math.floor(10000 + Math.random() * 90000).toString();
+function generateGameCode(): string {
+  const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+  let result = '';
+  for (let i = 0; i < 6; i++) {
+    result += chars.charAt(Math.floor(Math.random() * chars.length));
+  }
+  return result;
+}
+
+function generateUUID(): string {
+  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
+    const r = Math.random() * 16 | 0;
+    const v = c === 'x' ? r : (r & 0x3 | 0x8);
+    return v.toString(16);
+  });
 }
 
 function addCorsHeaders(response: Response): Response {
-  const newResponse = new Response(response.body, response);
-  newResponse.headers.set('Access-Control-Allow-Origin', '*');
-  newResponse.headers.set('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
-  newResponse.headers.set('Access-Control-Allow-Headers', 'Content-Type, Authorization');
-  return newResponse;
+  response.headers.set('Access-Control-Allow-Origin', '*');
+  response.headers.set('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
+  response.headers.set('Access-Control-Allow-Headers', 'Content-Type');
+  return response;
 }
 
-async function broadcastToParty(partyCode: string, message: any, excludeCharacterId?: string) {
-  const partyConnections = connections.get(partyCode) || [];
+async function broadcastToGame(gameCode: string, message: any, excludePlayerId?: string) {
+  const gameConnections = connections.get(gameCode) || [];
   
-  for (const connection of partyConnections) {
-    if (excludeCharacterId && connection.characterId === excludeCharacterId) {
+  for (const connection of gameConnections) {
+    if (excludePlayerId && connection.playerId === excludePlayerId) {
       continue;
     }
     
     try {
       connection.webSocket.send(JSON.stringify(message));
     } catch (error) {
-      console.error('Failed to send message to WebSocket:', error);
+      console.error('Error broadcasting to game connection:', error);
     }
   }
 }
 
 async function handleWebSocketMessage(webSocket: WebSocket, message: WebSocketMessage, env: Env) {
-  try {
-    switch (message.type) {
-      case 'create': {
-        const partyCode = generatePartyCode();
-        const partyData: PartyData = {
-          code: partyCode,
-          members: {},
-          createdAt: Date.now(),
-          lastUpdated: Date.now()
-        };
+  console.log('Received WebSocket message:', message);
 
-        if (message.characterData) {
-          partyData.members[message.characterData.id] = {
-            characterId: message.characterData.id,
-            characterData: message.characterData,
-            lastSeen: Date.now()
-          };
-        }
-
-        await env.PARTY_STORAGE.put(`party:${partyCode}`, JSON.stringify(partyData));
-        
-        // Store connection
-        if (message.characterData) {
-          const connection: WebSocketConnection = {
-            partyCode,
-            characterId: message.characterData.id,
-            webSocket
-          };
-          
-          if (!connections.has(partyCode)) {
-            connections.set(partyCode, []);
-          }
-          connections.get(partyCode)!.push(connection);
-        }
-        
-        webSocket.send(JSON.stringify({
-          type: 'party_created',
-          success: true,
-          partyCode,
-          partyData: {
-            code: partyData.code,
-            members: Object.values(partyData.members),
-            createdAt: partyData.createdAt,
-            lastUpdated: partyData.lastUpdated
-          }
-        }));
-        break;
+  switch (message.type) {
+    case 'game_create':
+      if (!message.gameData || !message.userId) {
+        webSocket.send(JSON.stringify({ type: 'error', error: 'Missing game data or user ID' }));
+        return;
       }
 
-      case 'join': {
-        if (!message.partyCode || !message.characterData) {
-          webSocket.send(JSON.stringify({
-            type: 'error',
-            error: 'Missing partyCode or characterData'
-          }));
-          return;
-        }
-
-        const partyDataStr = await env.PARTY_STORAGE.get(`party:${message.partyCode}`);
-        if (!partyDataStr) {
-          webSocket.send(JSON.stringify({
-            type: 'error',
-            error: 'Party not found'
-          }));
-          return;
-        }
-
-        const partyData: PartyData = JSON.parse(partyDataStr);
-        
-        partyData.members[message.characterData.id] = {
-          characterId: message.characterData.id,
-          characterData: message.characterData,
-          lastSeen: Date.now()
+      try {
+        const gameCode = generateGameCode();
+        const gameId = generateUUID();
+        const game: Game = {
+          ...message.gameData,
+          id: gameId,
+          code: gameCode,
+          ownerId: message.userId,
+          dungeonMasterId: message.userId,
+          createdAt: new Date().toISOString(),
+          lastModified: new Date().toISOString()
         };
-        partyData.lastUpdated = Date.now();
 
-        await env.PARTY_STORAGE.put(`party:${message.partyCode}`, JSON.stringify(partyData));
-        
-        // Store connection
-        const connection: WebSocketConnection = {
-          partyCode: message.partyCode,
-          characterId: message.characterData.id,
+        // Store game in KV with both UUID and code as keys
+        await env.PARTY_STORAGE.put(`game:${gameCode}`, JSON.stringify(game));
+        await env.PARTY_STORAGE.put(`game:${gameId}`, JSON.stringify(game));
+
+        // Add connection to game
+        if (!connections.has(gameCode)) {
+          connections.set(gameCode, []);
+        }
+        connections.get(gameCode)!.push({
+          gameCode,
+          playerId: message.userId,
+          isDungeonMaster: true,
           webSocket
+        });
+
+        // Send success response
+        webSocket.send(JSON.stringify({
+          type: 'game_created',
+          game
+        }));
+
+        console.log(`Game created: ${gameCode} (ID: ${gameId})`);
+      } catch (error) {
+        console.error('Error creating game:', error);
+        webSocket.send(JSON.stringify({ type: 'error', error: 'Failed to create game' }));
+      }
+      break;
+
+    case 'game_join':
+      if (!message.gameCode || !message.userId) {
+        webSocket.send(JSON.stringify({ type: 'error', error: 'Missing game code or user ID' }));
+        return;
+      }
+
+      try {
+        const gameDataStr = await env.PARTY_STORAGE.get(`game:${message.gameCode}`);
+        if (!gameDataStr) {
+          webSocket.send(JSON.stringify({ type: 'error', error: 'Game not found' }));
+          return;
+        }
+
+        const game: Game = JSON.parse(gameDataStr);
+        
+        // Check if user is already in the game
+        const existingPlayer = game.players.find(p => p.userId === message.userId);
+        if (existingPlayer) {
+          // User is already in the game, just add connection
+          if (!connections.has(message.gameCode)) {
+            connections.set(message.gameCode, []);
+          }
+          connections.get(message.gameCode)!.push({
+            gameCode: message.gameCode,
+            playerId: message.userId,
+            isDungeonMaster: game.dungeonMasterId === message.userId,
+            webSocket
+          });
+
+          webSocket.send(JSON.stringify({
+            type: 'game_joined',
+            game,
+            isDungeonMaster: game.dungeonMasterId === message.userId,
+            currentPlayerId: existingPlayer.id
+          }));
+
+          return;
+        }
+
+        // Add new player to game
+        const newPlayer: Player = {
+          id: generateUUID(),
+          characterId: message.characterId || '',
+          name: message.user?.name || 'Player',
+          position: { x: 25, y: 25 }, // Default center position
+          isActive: true,
+          userId: message.userId,
+          userEmail: message.user?.email,
+          userName: message.user?.name
         };
         
-        if (!connections.has(message.partyCode)) {
-          connections.set(message.partyCode, []);
-        }
-        connections.get(message.partyCode)!.push(connection);
+        game.players.push(newPlayer);
+        game.lastModified = new Date().toISOString();
         
-        // Broadcast to all party members
-        await broadcastToParty(message.partyCode, {
-          type: 'member_joined',
-          partyData: {
-            code: partyData.code,
-            members: Object.values(partyData.members),
-            createdAt: partyData.createdAt,
-            lastUpdated: partyData.lastUpdated
-          }
+        // Update game in KV
+        await env.PARTY_STORAGE.put(`game:${message.gameCode}`, JSON.stringify(game));
+        await env.PARTY_STORAGE.put(`game:${game.id}`, JSON.stringify(game));
+
+        // Add connection to game
+        if (!connections.has(message.gameCode)) {
+          connections.set(message.gameCode, []);
+        }
+        connections.get(message.gameCode)!.push({
+          gameCode: message.gameCode,
+          playerId: message.userId,
+          isDungeonMaster: game.dungeonMasterId === message.userId,
+          webSocket
         });
-        break;
+
+        // Send success response
+        webSocket.send(JSON.stringify({
+          type: 'game_joined',
+          game,
+          isDungeonMaster: game.dungeonMasterId === message.userId,
+          currentPlayerId: newPlayer.id
+        }));
+
+        // Broadcast to other players
+        await broadcastToGame(message.gameCode, {
+          type: 'player_joined',
+          game
+        }, message.userId);
+
+        console.log(`Player joined game: ${message.gameCode}`);
+      } catch (error) {
+        console.error('Error joining game:', error);
+        webSocket.send(JSON.stringify({ type: 'error', error: 'Failed to join game' }));
+      }
+      break;
+
+    case 'game_leave':
+      if (!message.gameCode || !message.playerId) {
+        webSocket.send(JSON.stringify({ type: 'error', error: 'Missing game code or player ID' }));
+        return;
       }
 
-      case 'update': {
-        if (!message.partyCode || (!message.characterData && !message.partyMember)) {
-          webSocket.send(JSON.stringify({
-            type: 'error',
-            error: 'Missing partyCode or character data'
-          }));
-          return;
-        }
-
-        const partyDataStr = await env.PARTY_STORAGE.get(`party:${message.partyCode}`);
-        if (!partyDataStr) {
-          webSocket.send(JSON.stringify({
-            type: 'error',
-            error: 'Party not found'
-          }));
-          return;
-        }
-
-        const partyData: PartyData = JSON.parse(partyDataStr);
-        
-        // Handle both legacy characterData and new partyMember formats
-        let characterId: string;
-        let updatedPartyMember: PartyMember;
-        
-        if (message.partyMember) {
-          // New format: complete party member data
-          characterId = message.partyMember.characterId;
-          updatedPartyMember = {
-            ...message.partyMember,
-            lastSeen: Date.now()
-          };
-        } else if (message.characterData) {
-          // Legacy format: just character data (for backward compatibility)
-          characterId = message.characterData.id;
-          updatedPartyMember = {
-            characterId: message.characterData.id,
-            characterData: message.characterData,
-            lastSeen: Date.now()
-          };
-        } else {
-          webSocket.send(JSON.stringify({
-            type: 'error',
-            error: 'No valid character data provided'
-          }));
-          return;
-        }
-        
-        if (partyData.members[characterId]) {
-          // Update the party member with complete data
-          partyData.members[characterId] = updatedPartyMember;
-          partyData.lastUpdated = Date.now();
-          
-          await env.PARTY_STORAGE.put(`party:${message.partyCode}`, JSON.stringify(partyData));
-          
-          // Broadcast complete party data to all members
-          await broadcastToParty(message.partyCode, {
-            type: 'member_updated',
-            partyData: {
-              code: partyData.code,
-              members: Object.values(partyData.members),
-              createdAt: partyData.createdAt,
-              lastUpdated: partyData.lastUpdated
-            }
-          });
-        }
-        break;
-      }
-
-      case 'roll_initiative': {
-        if (!message.partyCode || (!message.characterData && !message.partyMember)) {
-          webSocket.send(JSON.stringify({
-            type: 'error',
-            error: 'Missing partyCode or character data'
-          }));
-          return;
-        }
-
-        const partyDataStr = await env.PARTY_STORAGE.get(`party:${message.partyCode}`);
-        if (!partyDataStr) {
-          webSocket.send(JSON.stringify({
-            type: 'error',
-            error: 'Party not found'
-          }));
-          return;
-        }
-
-        const partyData: PartyData = JSON.parse(partyDataStr);
-        
-        // Handle both legacy characterData and new partyMember formats
-        let characterId: string;
-        let updatedPartyMember: PartyMember;
-        
-        if (message.partyMember) {
-          // New format: complete party member data
-          characterId = message.partyMember.characterId;
-          updatedPartyMember = {
-            ...message.partyMember,
-            lastSeen: Date.now()
-          };
-        } else if (message.characterData) {
-          // Legacy format: just character data (for backward compatibility)
-          characterId = message.characterData.id;
-          updatedPartyMember = {
-            characterId: message.characterData.id,
-            characterData: message.characterData,
-            lastSeen: Date.now()
-          };
-        } else {
-          webSocket.send(JSON.stringify({
-            type: 'error',
-            error: 'No valid character data provided'
-          }));
-          return;
-        }
-        
-        if (partyData.members[characterId]) {
-          // Update the party member with complete data
-          partyData.members[characterId] = updatedPartyMember;
-          partyData.lastUpdated = Date.now();
-          
-          await env.PARTY_STORAGE.put(`party:${message.partyCode}`, JSON.stringify(partyData));
-          
-          // Broadcast to all party members
-          await broadcastToParty(message.partyCode, {
-            type: 'initiative_rolled',
-            characterId: characterId,
-            initiativeRoll: updatedPartyMember.characterData.initiativeRoll,
-            partyData: {
-              code: partyData.code,
-              members: Object.values(partyData.members),
-              createdAt: partyData.createdAt,
-              lastUpdated: partyData.lastUpdated
-            }
-          });
-        }
-        break;
-      }
-
-      case 'leave': {
-        if (!message.partyCode || !message.characterId) {
-          webSocket.send(JSON.stringify({
-            type: 'error',
-            error: 'Missing partyCode or characterId'
-          }));
-          return;
-        }
-
-        const partyDataStr = await env.PARTY_STORAGE.get(`party:${message.partyCode}`);
-        if (partyDataStr) {
-          const partyData: PartyData = JSON.parse(partyDataStr);
-          
-          if (partyData.members[message.characterId]) {
-            delete partyData.members[message.characterId];
-            partyData.lastUpdated = Date.now();
-            
-            // If no members left, delete the party after 1 hour
-            if (Object.keys(partyData.members).length === 0) {
-              await env.PARTY_STORAGE.put(`party:${message.partyCode}`, JSON.stringify(partyData), {
-                expirationTtl: 3600 // 1 hour
-              });
-            } else {
-              await env.PARTY_STORAGE.put(`party:${message.partyCode}`, JSON.stringify(partyData));
-            }
-            
-            // Broadcast to remaining party members
-            await broadcastToParty(message.partyCode, {
-              type: 'member_left',
-              characterId: message.characterId,
-              partyData: {
-                code: partyData.code,
-                members: Object.values(partyData.members),
-                createdAt: partyData.createdAt,
-                lastUpdated: partyData.lastUpdated
-              }
-            });
-          }
-        }
-        
+      try {
         // Remove connection
-        const partyConnections = connections.get(message.partyCode) || [];
-        const updatedConnections = partyConnections.filter(
-          conn => conn.characterId !== message.characterId
-        );
-        
-        if (updatedConnections.length === 0) {
-          connections.delete(message.partyCode);
-        } else {
-          connections.set(message.partyCode, updatedConnections);
+        const gameConnections = connections.get(message.gameCode) || [];
+        const updatedConnections = gameConnections.filter(conn => conn.playerId !== message.playerId);
+        connections.set(message.gameCode, updatedConnections);
+
+        // Update game data
+        const gameDataStr = await env.PARTY_STORAGE.get(`game:${message.gameCode}`);
+        if (gameDataStr) {
+          const game: Game = JSON.parse(gameDataStr);
+          game.players = game.players.filter(p => p.userId !== message.playerId);
+          game.lastModified = new Date().toISOString();
+          
+          await env.PARTY_STORAGE.put(`game:${message.gameCode}`, JSON.stringify(game));
+
+          // Broadcast to remaining players
+          await broadcastToGame(message.gameCode, {
+            type: 'player_left',
+            game
+          });
         }
-        
-        webSocket.send(JSON.stringify({
-          type: 'left_party',
-          success: true
-        }));
-        break;
+
+        console.log(`Player left game: ${message.gameCode}`);
+      } catch (error) {
+        console.error('Error leaving game:', error);
+      }
+      break;
+
+    case 'player_move':
+      if (!message.gameCode || !message.playerId || !message.position) {
+        webSocket.send(JSON.stringify({ type: 'error', error: 'Missing game code, player ID, or position' }));
+        return;
       }
 
-      case 'heartbeat': {
-        if (!message.partyCode || !message.characterId) {
+      try {
+        const gameDataStr = await env.PARTY_STORAGE.get(`game:${message.gameCode}`);
+        if (!gameDataStr) {
+          webSocket.send(JSON.stringify({ type: 'error', error: 'Game not found' }));
           return;
         }
 
-        const partyDataStr = await env.PARTY_STORAGE.get(`party:${message.partyCode}`);
-        if (partyDataStr) {
-          const partyData: PartyData = JSON.parse(partyDataStr);
+        const game: Game = JSON.parse(gameDataStr);
+        const player = game.players.find(p => p.userId === message.playerId);
+        if (player) {
+          player.position = message.position;
+          game.lastModified = new Date().toISOString();
           
-          if (partyData.members[message.characterId]) {
-            partyData.members[message.characterId].lastSeen = Date.now();
-            await env.PARTY_STORAGE.put(`party:${message.partyCode}`, JSON.stringify(partyData));
-          }
+          await env.PARTY_STORAGE.put(`game:${message.gameCode}`, JSON.stringify(game));
+
+          // Broadcast to other players
+          await broadcastToGame(message.gameCode, {
+            type: 'player_moved',
+            playerId: message.playerId,
+            position: message.position,
+            game
+          }, message.playerId);
         }
-        break;
+      } catch (error) {
+        console.error('Error updating player position:', error);
+        webSocket.send(JSON.stringify({ type: 'error', error: 'Failed to update player position' }));
+      }
+      break;
+
+    case 'enemy_add':
+      if (!message.gameCode || !message.enemy) {
+        webSocket.send(JSON.stringify({ type: 'error', error: 'Missing game code or enemy data' }));
+        return;
       }
 
-      default:
-        webSocket.send(JSON.stringify({
-          type: 'error',
-          error: 'Unknown message type'
+      try {
+        const gameDataStr = await env.PARTY_STORAGE.get(`game:${message.gameCode}`);
+        if (!gameDataStr) {
+          webSocket.send(JSON.stringify({ type: 'error', error: 'Game not found' }));
+          return;
+        }
+
+        const game: Game = JSON.parse(gameDataStr);
+        game.enemies.push(message.enemy);
+        game.lastModified = new Date().toISOString();
+        
+        await env.PARTY_STORAGE.put(`game:${message.gameCode}`, JSON.stringify(game));
+
+        // Broadcast to all players
+        await broadcastToGame(message.gameCode, {
+          type: 'enemy_added',
+          enemy: message.enemy,
+          game
+        });
+      } catch (error) {
+        console.error('Error adding enemy:', error);
+        webSocket.send(JSON.stringify({ type: 'error', error: 'Failed to add enemy' }));
+      }
+      break;
+
+    case 'enemy_move':
+      if (!message.gameCode || !message.enemy || !message.position) {
+        webSocket.send(JSON.stringify({ type: 'error', error: 'Missing game code, enemy, or position' }));
+        return;
+      }
+
+      try {
+        const gameDataStr = await env.PARTY_STORAGE.get(`game:${message.gameCode}`);
+        if (!gameDataStr) {
+          webSocket.send(JSON.stringify({ type: 'error', error: 'Game not found' }));
+          return;
+        }
+
+        const game: Game = JSON.parse(gameDataStr);
+        const enemy = game.enemies.find(e => e.id === message.enemy!.id);
+        if (enemy) {
+          enemy.position = message.position;
+          game.lastModified = new Date().toISOString();
+          
+          await env.PARTY_STORAGE.put(`game:${message.gameCode}`, JSON.stringify(game));
+
+          // Broadcast to all players
+          await broadcastToGame(message.gameCode, {
+            type: 'enemy_moved',
+            enemyId: message.enemy.id,
+            position: message.position,
+            game
+          });
+        }
+      } catch (error) {
+        console.error('Error updating enemy position:', error);
+        webSocket.send(JSON.stringify({ type: 'error', error: 'Failed to update enemy position' }));
+      }
+      break;
+
+    case 'terrain_add':
+      if (!message.gameCode || !message.terrain) {
+        webSocket.send(JSON.stringify({ type: 'error', error: 'Missing game code or terrain data' }));
+        return;
+      }
+
+      try {
+        const gameDataStr = await env.PARTY_STORAGE.get(`game:${message.gameCode}`);
+        if (!gameDataStr) {
+          webSocket.send(JSON.stringify({ type: 'error', error: 'Game not found' }));
+          return;
+        }
+
+        const game: Game = JSON.parse(gameDataStr);
+        game.terrain.push(message.terrain);
+        game.lastModified = new Date().toISOString();
+        
+        await env.PARTY_STORAGE.put(`game:${message.gameCode}`, JSON.stringify(game));
+
+        // Broadcast to all players
+        await broadcastToGame(message.gameCode, {
+          type: 'terrain_added',
+          terrain: message.terrain,
+          game
+        });
+      } catch (error) {
+        console.error('Error adding terrain:', error);
+        webSocket.send(JSON.stringify({ type: 'error', error: 'Failed to add terrain' }));
+      }
+      break;
+
+    case 'terrain_remove':
+      if (!message.gameCode || !message.terrain) {
+        webSocket.send(JSON.stringify({ type: 'error', error: 'Missing game code or terrain data' }));
+        return;
+      }
+
+      try {
+        const gameDataStr = await env.PARTY_STORAGE.get(`game:${message.gameCode}`);
+        if (!gameDataStr) {
+          webSocket.send(JSON.stringify({ type: 'error', error: 'Game not found' }));
+          return;
+        }
+
+        const game: Game = JSON.parse(gameDataStr);
+        game.terrain = game.terrain.filter(t => t.id !== message.terrain!.id);
+        game.lastModified = new Date().toISOString();
+        
+        await env.PARTY_STORAGE.put(`game:${message.gameCode}`, JSON.stringify(game));
+
+        // Broadcast to all players
+        await broadcastToGame(message.gameCode, {
+          type: 'terrain_removed',
+          terrainId: message.terrain.id,
+          game
+        });
+      } catch (error) {
+        console.error('Error removing terrain:', error);
+        webSocket.send(JSON.stringify({ type: 'error', error: 'Failed to remove terrain' }));
+      }
+      break;
+
+    case 'user_login':
+      if (!message.user) {
+        webSocket.send(JSON.stringify({ type: 'error', error: 'Missing user data' }));
+        return;
+      }
+
+      try {
+        const user: User = {
+          ...message.user,
+          lastSeen: Date.now(),
+          gamesPlayed: message.user.gamesPlayed || [],
+          charactersCreated: message.user.charactersCreated || []
+        };
+
+        await env.PARTY_STORAGE.put(`user:${user.id}`, JSON.stringify(user));
+        console.log(`User logged in: ${user.email}`);
+      } catch (error) {
+        console.error('Error logging in user:', error);
+        webSocket.send(JSON.stringify({ type: 'error', error: 'Failed to log in user' }));
+      }
+      break;
+
+    case 'character_save':
+      if (!message.characterData || !message.userId) {
+        webSocket.send(JSON.stringify({ type: 'error', error: 'Missing character data or user ID' }));
+        return;
+      }
+
+      try {
+        // Get user data
+        const userDataStr = await env.PARTY_STORAGE.get(`user:${message.userId}`);
+        let user: User;
+        
+        if (userDataStr) {
+          user = JSON.parse(userDataStr);
+        } else {
+          user = {
+            id: message.userId,
+            email: '',
+            name: '',
+            lastSeen: Date.now(),
+            gamesPlayed: [],
+            charactersCreated: []
+          };
+        }
+
+        // Update user's characters list if not already included
+        if (!user.charactersCreated.includes(message.characterData.id)) {
+          user.charactersCreated.push(message.characterData.id);
+        }
+
+        // Save user and character
+        await env.PARTY_STORAGE.put(`user:${message.userId}`, JSON.stringify(user));
+        await env.PARTY_STORAGE.put(`character:${message.characterData.id}`, JSON.stringify({
+          ...message.characterData,
+          userId: message.userId,
+          lastModified: new Date().toISOString()
         }));
-    }
-  } catch (error) {
-    console.error('WebSocket message handling error:', error);
-    webSocket.send(JSON.stringify({
-      type: 'error',
-      error: 'Internal server error'
-    }));
+
+        console.log(`Character saved: ${message.characterData.name}`);
+        
+        // Send success response
+        webSocket.send(JSON.stringify({ 
+          type: 'character_saved', 
+          characterId: message.characterData.id,
+          characterName: message.characterData.name
+        }));
+      } catch (error) {
+        console.error('Error saving character:', error);
+        webSocket.send(JSON.stringify({ type: 'error', error: 'Failed to save character' }));
+      }
+      break;
+
+    case 'get_user_characters':
+      if (!message.userId) {
+        webSocket.send(JSON.stringify({ type: 'error', error: 'Missing user ID' }));
+        return;
+      }
+
+      try {
+        const userDataStr = await env.PARTY_STORAGE.get(`user:${message.userId}`);
+        if (!userDataStr) {
+          webSocket.send(JSON.stringify({ type: 'user_characters', characters: [] }));
+          return;
+        }
+
+        const user: User = JSON.parse(userDataStr);
+        const characters: CharacterData[] = [];
+
+        for (const characterId of user.charactersCreated) {
+          const characterDataStr = await env.PARTY_STORAGE.get(`character:${characterId}`);
+          if (characterDataStr) {
+            characters.push(JSON.parse(characterDataStr));
+          }
+        }
+
+        webSocket.send(JSON.stringify({ type: 'user_characters', characters }));
+      } catch (error) {
+        console.error('Error getting user characters:', error);
+        webSocket.send(JSON.stringify({ type: 'error', error: 'Failed to get user characters' }));
+      }
+      break;
+
+    case 'character_delete':
+      if (!message.characterId || !message.userId) {
+        webSocket.send(JSON.stringify({ type: 'error', error: 'Missing character ID or user ID' }));
+        return;
+      }
+
+      try {
+        // Get user data
+        const userDataStr = await env.PARTY_STORAGE.get(`user:${message.userId}`);
+        if (userDataStr) {
+          const user: User = JSON.parse(userDataStr);
+          user.charactersCreated = user.charactersCreated.filter(id => id !== message.characterId);
+          
+          await env.PARTY_STORAGE.put(`user:${message.userId}`, JSON.stringify(user));
+        }
+
+        // Delete character
+        await env.PARTY_STORAGE.delete(`character:${message.characterId}`);
+
+        console.log(`Character deleted: ${message.characterId}`);
+        
+        // Send success response
+        webSocket.send(JSON.stringify({ 
+          type: 'character_deleted', 
+          characterId: message.characterId 
+        }));
+      } catch (error) {
+        console.error('Error deleting character:', error);
+        webSocket.send(JSON.stringify({ type: 'error', error: 'Failed to delete character' }));
+      }
+      break;
+
+    case 'get_games':
+      try {
+        // Get all games from KV
+        const games: Game[] = [];
+        const list = await env.PARTY_STORAGE.list({ prefix: 'game:' });
+        
+        for (const key of list.keys) {
+          const gameDataStr = await env.PARTY_STORAGE.get(key.name);
+          if (gameDataStr) {
+            const game = JSON.parse(gameDataStr);
+            // Only include games that are not duplicates (avoid both UUID and code keys)
+            if (key.name.startsWith('game:') && key.name.length > 6) {
+              const code = key.name.substring(6);
+              if (code.length === 6) { // Game code is 6 characters
+                games.push(game);
+              }
+            }
+          }
+        }
+
+        webSocket.send(JSON.stringify({
+          type: 'games_list',
+          games
+        }));
+      } catch (error) {
+        console.error('Error getting games:', error);
+        webSocket.send(JSON.stringify({ type: 'error', error: 'Failed to get games' }));
+      }
+      break;
+
+    default:
+      webSocket.send(JSON.stringify({ type: 'error', error: 'Unknown message type' }));
   }
 }
 
@@ -505,129 +762,122 @@ export default {
   async fetch(request: Request, env: Env): Promise<Response> {
     const url = new URL(request.url);
     
-    // Handle CORS preflight
+    // Handle CORS preflight requests
     if (request.method === 'OPTIONS') {
       return addCorsHeaders(new Response(null, { status: 200 }));
     }
 
-    // WebSocket upgrade
-    if (url.pathname === '/ws' && request.headers.get('Upgrade') === 'websocket') {
-      const pair = new WebSocketPair();
-      const [client, server] = Object.values(pair);
+    // Handle WebSocket upgrade
+    if (url.pathname === '/ws') {
+      const upgradeHeader = request.headers.get('Upgrade');
+      if (upgradeHeader !== 'websocket') {
+        return new Response('Expected WebSocket', { status: 400 });
+      }
+
+      const webSocketPair = new WebSocketPair();
+      const [client, server] = Object.values(webSocketPair);
 
       server.accept();
 
       server.addEventListener('message', async (event) => {
         try {
-          const message: WebSocketMessage = JSON.parse(event.data as string);
+          const message = JSON.parse(event.data as string);
           await handleWebSocketMessage(server, message, env);
         } catch (error) {
-          console.error('Failed to parse WebSocket message:', error);
-          server.send(JSON.stringify({
-            type: 'error',
-            error: 'Invalid message format'
-          }));
+          console.error('Error handling WebSocket message:', error);
+          server.send(JSON.stringify({ type: 'error', error: 'Invalid message format' }));
         }
       });
 
       server.addEventListener('close', () => {
-        // Clean up connections when WebSocket closes
-        for (const [partyCode, partyConnections] of connections.entries()) {
-          const updatedConnections = partyConnections.filter(conn => conn.webSocket !== server);
-          if (updatedConnections.length === 0) {
-            connections.delete(partyCode);
-          } else {
-            connections.set(partyCode, updatedConnections);
-          }
-        }
+        console.log('WebSocket connection closed');
       });
 
-      return new Response(null, {
-        status: 101,
-        webSocket: client,
+      server.addEventListener('error', (error) => {
+        console.error('WebSocket error:', error);
       });
+
+      return new Response(null, { status: 101, webSocket: client });
     }
 
-    // Fallback HTTP endpoints for non-WebSocket clients
-    try {
-      // Create party (HTTP fallback)
-      if (url.pathname === '/api/party/create' && request.method === 'POST') {
-        const body = await request.json() as { characterData?: CharacterData };
-        const partyCode = generatePartyCode();
-        
-        const partyData: PartyData = {
-          code: partyCode,
-          members: {},
-          createdAt: Date.now(),
-          lastUpdated: Date.now()
-        };
+    // Handle HTTP API endpoints
+    if (url.pathname.startsWith('/api/')) {
+      const path = url.pathname.substring(4); // Remove '/api/'
 
-        if (body.characterData) {
-          partyData.members[body.characterData.id] = {
-            characterId: body.characterData.id,
-            characterData: body.characterData,
-            lastSeen: Date.now()
-          };
-        }
+      switch (path) {
+        case 'games':
+          if (request.method === 'GET') {
+            try {
+              // Get all games from KV
+              const games: Game[] = [];
+              const list = await env.PARTY_STORAGE.list({ prefix: 'game:' });
+              
+              for (const key of list.keys) {
+                const gameDataStr = await env.PARTY_STORAGE.get(key.name);
+                if (gameDataStr) {
+                  games.push(JSON.parse(gameDataStr));
+                }
+              }
 
-        await env.PARTY_STORAGE.put(`party:${partyCode}`, JSON.stringify(partyData));
-        
-        return addCorsHeaders(new Response(JSON.stringify({
-          success: true,
-          partyCode,
-          partyData: {
-            code: partyData.code,
-            members: Object.values(partyData.members),
-            createdAt: partyData.createdAt,
-            lastUpdated: partyData.lastUpdated
+              return addCorsHeaders(new Response(JSON.stringify({ success: true, games }), {
+                headers: { 'Content-Type': 'application/json' }
+              }));
+            } catch (error) {
+              console.error('Error getting games:', error);
+              return addCorsHeaders(new Response(JSON.stringify({ success: false, error: 'Failed to get games' }), {
+                status: 500,
+                headers: { 'Content-Type': 'application/json' }
+              }));
+            }
           }
-        })));
-      }
+          break;
 
-      // Join party (HTTP fallback)
-      if (url.pathname === '/api/party/join' && request.method === 'POST') {
-        const body = await request.json() as { partyCode: string; characterData?: CharacterData };
-        
-        const partyDataStr = await env.PARTY_STORAGE.get(`party:${body.partyCode}`);
-        if (!partyDataStr) {
-          return addCorsHeaders(new Response(JSON.stringify({
-            success: false,
-            error: 'Party not found'
-          }), { status: 404 }));
-        }
+        case 'users/stats':
+          if (request.method === 'GET') {
+            try {
+              const list = await env.PARTY_STORAGE.list({ prefix: 'user:' });
+              const totalUsers = list.keys.length;
+              
+              let totalCharacters = 0;
+              for (const key of list.keys) {
+                const userDataStr = await env.PARTY_STORAGE.get(key.name);
+                if (userDataStr) {
+                  const user: User = JSON.parse(userDataStr);
+                  totalCharacters += user.charactersCreated.length;
+                }
+              }
 
-        const partyData: PartyData = JSON.parse(partyDataStr);
-        
-        if (body.characterData) {
-          partyData.members[body.characterData.id] = {
-            characterId: body.characterData.id,
-            characterData: body.characterData,
-            lastSeen: Date.now()
-          };
-          partyData.lastUpdated = Date.now();
-
-          await env.PARTY_STORAGE.put(`party:${body.partyCode}`, JSON.stringify(partyData));
-        }
-        
-        return addCorsHeaders(new Response(JSON.stringify({
-          success: true,
-          partyData: {
-            code: partyData.code,
-            members: Object.values(partyData.members),
-            createdAt: partyData.createdAt,
-            lastUpdated: partyData.lastUpdated
+              return addCorsHeaders(new Response(JSON.stringify({
+                success: true,
+                stats: {
+                  totalUsers,
+                  totalCharacters,
+                  totalGames: 0 // Will be implemented when we add game counting
+                }
+              }), {
+                headers: { 'Content-Type': 'application/json' }
+              }));
+            } catch (error) {
+              console.error('Error getting user stats:', error);
+              return addCorsHeaders(new Response(JSON.stringify({ success: false, error: 'Failed to get user stats' }), {
+                status: 500,
+                headers: { 'Content-Type': 'application/json' }
+              }));
+            }
           }
-        })));
+          break;
+
+        default:
+          return addCorsHeaders(new Response(JSON.stringify({ success: false, error: 'Endpoint not found' }), {
+            status: 404,
+            headers: { 'Content-Type': 'application/json' }
+          }));
       }
-
-      return addCorsHeaders(new Response('Not found', { status: 404 }));
-
-    } catch (error) {
-      console.error('Worker error:', error);
-      return addCorsHeaders(new Response(JSON.stringify({
-        success: false,
-        error: 'Internal server error'
-      }), { status: 500 }));
     }
-  },
+
+    return addCorsHeaders(new Response(JSON.stringify({ success: false, error: 'Not found' }), {
+      status: 404,
+      headers: { 'Content-Type': 'application/json' }
+    }));
+  }
 }; 

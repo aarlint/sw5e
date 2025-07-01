@@ -1,0 +1,138 @@
+.enemy-manager {
+  background: #1a1a1a;
+  border-radius: 8px;
+  padding: 20px;
+  border: 1px solid #333;
+}
+
+.enemy-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 15px;
+}
+
+.enemy-header h3 {
+  color: #ffd700;
+  margin: 0;
+  font-size: 1.2rem;
+}
+
+.enemy-create-form {
+  background: #2a2a2a;
+  border-radius: 6px;
+  padding: 15px;
+  margin-bottom: 15px;
+  border: 1px solid #333;
+}
+
+.enemy-create-form .form-group {
+  margin-bottom: 12px;
+}
+
+.enemy-create-form label {
+  display: block;
+  color: #ffd700;
+  margin-bottom: 5px;
+  font-size: 0.9rem;
+}
+
+.enemy-create-form input,
+.enemy-create-form select {
+  width: 100%;
+  padding: 8px 12px;
+  border: 1px solid #333;
+  border-radius: 4px;
+  background: #1a1a1a;
+  color: #fff;
+  font-size: 0.9rem;
+}
+
+.enemy-create-form input:focus,
+.enemy-create-form select:focus {
+  outline: none;
+  border-color: #ffd700;
+}
+
+.enemy-list {
+  max-height: 400px;
+  overflow-y: auto;
+}
+
+.enemy-item {
+  display: flex;
+  align-items: center;
+  padding: 10px;
+  margin-bottom: 8px;
+  background: #2a2a2a;
+  border-radius: 6px;
+  border: 1px solid #333;
+  cursor: grab;
+  transition: all 0.3s ease;
+}
+
+.enemy-item:hover {
+  background: #3a3a3a;
+  border-color: #ff6b6b;
+}
+
+.enemy-token {
+  font-size: 1.5rem;
+  margin-right: 12px;
+  min-width: 30px;
+  text-align: center;
+}
+
+.enemy-info {
+  flex: 1;
+}
+
+.enemy-name {
+  color: #fff;
+  font-weight: 600;
+  margin-bottom: 4px;
+}
+
+.enemy-stats {
+  color: #ccc;
+  font-size: 0.8rem;
+  margin-bottom: 4px;
+}
+
+.enemy-position {
+  color: #999;
+  font-size: 0.8rem;
+}
+
+.no-enemies {
+  color: #666;
+  text-align: center;
+  padding: 20px;
+  font-style: italic;
+}
+
+.btn {
+  padding: 8px 16px;
+  border: none;
+  border-radius: 4px;
+  font-size: 0.9rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+.btn-primary {
+  background: #ffd700;
+  color: #1a1a1a;
+}
+
+.btn-primary:hover:not(:disabled) {
+  background: #ffed4e;
+  transform: translateY(-1px);
+}
+
+.btn-primary:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+  transform: none;
+} 

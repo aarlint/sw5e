@@ -18,6 +18,33 @@ body {
   padding: 10px;
 }
 
+.App.game-map-active {
+  padding: 0;
+  height: 100vh;
+  overflow: hidden;
+}
+
+.app-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 20px;
+  padding: 0 10px;
+}
+
+.loading-container {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  min-height: 100vh;
+  background: #1a1a1a;
+}
+
+.loading {
+  color: #fff;
+  font-size: 18px;
+}
+
 .App-logo {
   height: 40vmin;
   pointer-events: none;

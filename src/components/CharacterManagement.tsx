@@ -1,57 +1,151 @@
 import React, { useState, useEffect, useRef } from 'react';
 import './CharacterManagement.css';
-
-interface Character {
-  id: string;
-  name: string;
-  level: number;
-  class: string;
-  species: string;
-  background: string;
-  strength: number;
-  dexterity: number;
-  constitution: number;
-  intelligence: number;
-  wisdom: number;
-  charisma: number;
-  armorClass: number;
-  hitPoints: {
-    maximum: number;
-    current: number;
-    temporary: number;
-  };
-  weapons: any[];
-  skills: any[];
-  experiencePoints: number;
-  credits: number;
-  forcePoints: number;
-  createdAt: string;
-  lastModified: string;
-}
+import { Character } from '../types/character';
+import { generateShortUUID } from '../utils/uuid';
+import { useAuth } from '../contexts/AuthContext';
+import WorkerService from '../services/workerService';
 
 interface CharacterManagementProps {
   onSelectCharacter: (character: Character) => void;
   onNavigate: (page: string) => void;
+  refreshTrigger?: number;
 }
 
 const CharacterManagement: React.FC<CharacterManagementProps> = ({ 
   onSelectCharacter, 
-  onNavigate 
+  onNavigate,
+  refreshTrigger = 0
 }) => {
+  const { user } = useAuth();
   const [characters, setCharacters] = useState<Character[]>([]);
   const [selectedCharacter, setSelectedCharacter] = useState<Character | null>(null);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState<string | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const workerService = WorkerService.getInstance();
 
-  // Load characters from localStorage on component mount
+  // Load characters from worker service on component mount or when refreshTrigger changes
   useEffect(() => {
-    const savedCharacters = localStorage.getItem('starWarsCharacters');
-    if (savedCharacters) {
-      const loadedCharacters = JSON.parse(savedCharacters);
+    const loadCharacters = async () => {
+      if (!user?.id) {
+        setIsLoading(false);
+        return;
+      }
+
+      try {
+        const userCharacters = await workerService.getUserCharacters(user.id);
+        
+        // Ensure all characters have the required fields with default values for backward compatibility
+        const charactersWithDefaults = userCharacters.map((char: any) => ({
+          id: char.id || '',
+          shortId: char.shortId || generateShortUUID(),
+          name: char.name || '',
+          level: char.level || 1,
+          class: char.class || '',
+          background: char.background || '',
+          species: char.species || '',
+          alignment: char.alignment || '',
+          experiencePoints: char.experiencePoints || 0,
+          strength: char.strength || 10,
+          dexterity: char.dexterity || 10,
+          constitution: char.constitution || 10,
+          intelligence: char.intelligence || 10,
+          wisdom: char.wisdom || 10,
+          charisma: char.charisma || 10,
+          armorClass: char.armorClass || 10,
+          initiative: char.initiative || 0,
+          speed: char.speed || 30,
+          hitPoints: {
+            maximum: char.hitPoints?.maximum || 0,
+            current: char.hitPoints?.current || 0,
+            temporary: char.hitPoints?.temporary || 0
+          },
+          hitDice: char.hitDice || '1d8',
+          hitDiceTotal: char.hitDiceTotal || '1d8',
+          deathSaves: {
+            successes: char.deathSaves?.successes || 0,
+            failures: char.deathSaves?.failures || 0
+          },
+          weapons: char.weapons || [],
+          skills: char.skills || [
+            { name: 'Acrobatics', ability: 'dexterity', proficient: false, bonus: 0 },
+            { name: 'Athletics', ability: 'strength', proficient: false, bonus: 0 },
+            { name: 'Deception', ability: 'charisma', proficient: false, bonus: 0 },
+            { name: 'Insight', ability: 'wisdom', proficient: false, bonus: 0 },
+            { name: 'Intimidation', ability: 'charisma', proficient: false, bonus: 0 },
+            { name: 'Investigation', ability: 'intelligence', proficient: false, bonus: 0 },
+            { name: 'Perception', ability: 'wisdom', proficient: false, bonus: 0 },
+            { name: 'Performance', ability: 'charisma', proficient: false, bonus: 0 },
+            { name: 'Persuasion', ability: 'charisma', proficient: false, bonus: 0 },
+            { name: 'Sleight of Hand', ability: 'dexterity', proficient: false, bonus: 0 },
+            { name: 'Stealth', ability: 'dexterity', proficient: false, bonus: 0 },
+            { name: 'Survival', ability: 'wisdom', proficient: false, bonus: 0 }
+          ],
+          proficiencies: {
+            armor: char.proficiencies?.armor || '',
+            weapons: char.proficiencies?.weapons || '',
+            tools: char.proficiencies?.tools || '',
+            languages: char.proficiencies?.languages || ''
+          },
+          features: char.features || '',
+          credits: char.credits || 0,
+          forcePoints: char.forcePoints || 0,
+          techPoints: char.techPoints || 0,
+          exhaustion: char.exhaustion || 0,
+          equipment: char.equipment || '',
+          personality: {
+            traits: char.personality?.traits || '',
+            ideals: char.personality?.ideals || '',
+            bonds: char.personality?.bonds || '',
+            flaws: char.personality?.flaws || ''
+          },
+          notes: char.notes || '',
+          createdAt: char.createdAt || new Date().toISOString(),
+          lastModified: char.lastModified || new Date().toISOString()
+        }));
+        
+        setCharacters(charactersWithDefaults);
+        setIsLoading(false);
+      } catch (error) {
+        console.error('Error loading characters:', error);
+        alert('Failed to load characters. Please try again.');
+        setIsLoading(false);
+      }
+    };
+
+    loadCharacters();
+  }, [user?.id, refreshTrigger, workerService]);
+
+  // Characters are now saved directly to backend, no localStorage needed
+
+  const getAbilityModifier = (score: number): number => {
+    return Math.floor((score - 10) / 2);
+  };
+
+  const handleSelectCharacter = (character: Character) => {
+    setSelectedCharacter(character);
+    onSelectCharacter(character);
+    // Navigate to character sheet with character short ID
+    onNavigate(`character-sheet/${character.shortId}`);
+  };
+
+  const handleDeleteCharacter = async (characterId: string) => {
+    if (!user?.id) {
+      alert('You must be logged in to delete characters.');
+      return;
+    }
+
+    try {
+      // Delete from backend
+      await workerService.deleteCharacter(characterId, user.id);
+      
+      // Refresh the character list from the server to ensure consistency
+      const userCharacters = await workerService.getUserCharacters(user.id);
       
       // Ensure all characters have the required fields with default values for backward compatibility
-      const charactersWithDefaults = loadedCharacters.map((char: any) => ({
+      const charactersWithDefaults = userCharacters.map((char: any) => ({
         id: char.id || '',
+        shortId: char.shortId || generateShortUUID(),
         name: char.name || '',
         level: char.level || 1,
         class: char.class || '',
@@ -103,6 +197,8 @@ const CharacterManagement: React.FC<CharacterManagementProps> = ({
         features: char.features || '',
         credits: char.credits || 0,
         forcePoints: char.forcePoints || 0,
+        techPoints: char.techPoints || 0,
+        exhaustion: char.exhaustion || 0,
         equipment: char.equipment || '',
         personality: {
           traits: char.personality?.traits || '',
@@ -115,33 +211,19 @@ const CharacterManagement: React.FC<CharacterManagementProps> = ({
         lastModified: char.lastModified || new Date().toISOString()
       }));
       
+      // Update local state with fresh data from server
       setCharacters(charactersWithDefaults);
-    }
-  }, []);
-
-  const saveCharacters = (newCharacters: Character[]) => {
-    localStorage.setItem('starWarsCharacters', JSON.stringify(newCharacters));
-    setCharacters(newCharacters);
-  };
-
-  const getAbilityModifier = (score: number): number => {
-    return Math.floor((score - 10) / 2);
-  };
-
-  const handleSelectCharacter = (character: Character) => {
-    setSelectedCharacter(character);
-    onSelectCharacter(character);
-    onNavigate('character-sheet');
-  };
-
-  const handleDeleteCharacter = (characterId: string) => {
-    const updatedCharacters = characters.filter(char => char.id !== characterId);
-    saveCharacters(updatedCharacters);
-    setShowDeleteConfirm(null);
-    
-    // If we deleted the currently selected character, clear it
-    if (selectedCharacter?.id === characterId) {
-      setSelectedCharacter(null);
+      setShowDeleteConfirm(null);
+      
+      // If we deleted the currently selected character, clear it
+      if (selectedCharacter?.id === characterId) {
+        setSelectedCharacter(null);
+      }
+      
+      alert('Character deleted successfully.');
+    } catch (error) {
+      console.error('Error deleting character:', error);
+      alert('Failed to delete character. Please try again.');
     }
   };
 
@@ -179,12 +261,12 @@ const CharacterManagement: React.FC<CharacterManagementProps> = ({
     fileInputRef.current?.click();
   };
 
-  const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (!file) return;
 
     const reader = new FileReader();
-    reader.onload = (e) => {
+    reader.onload = async (e) => {
       try {
         const content = e.target?.result as string;
         const characterData = JSON.parse(content);
@@ -199,22 +281,30 @@ const CharacterManagement: React.FC<CharacterManagementProps> = ({
         const character: Character = {
           ...characterData,
           id: characterData.id || Date.now().toString(),
+          shortId: characterData.shortId || generateShortUUID(),
           createdAt: characterData.createdAt || new Date().toISOString(),
           lastModified: new Date().toISOString()
         };
 
-        // Check if character already exists
-        const existingIndex = characters.findIndex(char => char.id === character.id);
-        if (existingIndex >= 0) {
-          // Update existing character
-          const updatedCharacters = [...characters];
-          updatedCharacters[existingIndex] = character;
-          saveCharacters(updatedCharacters);
-          alert(`Character "${character.name}" has been updated.`);
+        // Save character to worker service
+        if (user?.id) {
+          await workerService.saveCharacter(character, user.id);
+          
+          // Update local state
+          const existingIndex = characters.findIndex(char => char.id === character.id);
+          if (existingIndex >= 0) {
+            // Update existing character
+            const updatedCharacters = [...characters];
+            updatedCharacters[existingIndex] = character;
+            setCharacters(updatedCharacters);
+            alert(`Character "${character.name}" has been updated.`);
+          } else {
+            // Add new character
+            setCharacters([...characters, character]);
+            alert(`Character "${character.name}" has been imported successfully.`);
+          }
         } else {
-          // Add new character
-          saveCharacters([...characters, character]);
-          alert(`Character "${character.name}" has been imported successfully.`);
+          alert('You must be logged in to import characters.');
         }
       } catch (error) {
         alert('Error reading file. Please make sure it\'s a valid JSON file.');
@@ -263,7 +353,12 @@ const CharacterManagement: React.FC<CharacterManagementProps> = ({
           </div>
         </div>
 
-        {characters.length === 0 ? (
+        {isLoading ? (
+          <div className="loading-state">
+            <div className="loading-spinner"></div>
+            <p>Loading your characters...</p>
+          </div>
+        ) : characters.length === 0 ? (
           <div className="empty-state">
             <div className="empty-icon">👤</div>
             <h2>No Characters Found</h2>

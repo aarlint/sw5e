@@ -1,0 +1,78 @@
+.player-panel {
+  background: #1a1a1a;
+  border-radius: 8px;
+  padding: 20px;
+  margin-bottom: 20px;
+  border: 1px solid #333;
+}
+
+.player-panel h3 {
+  color: #ffd700;
+  margin-bottom: 15px;
+  font-size: 1.2rem;
+}
+
+.player-list {
+  max-height: 300px;
+  overflow-y: auto;
+}
+
+.player-item {
+  display: flex;
+  align-items: center;
+  padding: 10px;
+  margin-bottom: 8px;
+  background: #2a2a2a;
+  border-radius: 6px;
+  border: 1px solid #333;
+  cursor: grab;
+  transition: all 0.3s ease;
+}
+
+.player-item:hover {
+  background: #3a3a3a;
+  border-color: #ffd700;
+}
+
+.player-item.current-player {
+  border-color: #4CAF50;
+  background: #2a3a2a;
+}
+
+.player-token {
+  font-size: 1.5rem;
+  margin-right: 12px;
+  min-width: 30px;
+  text-align: center;
+}
+
+.player-info {
+  flex: 1;
+}
+
+.player-name {
+  color: #fff;
+  font-weight: 600;
+  margin-bottom: 4px;
+}
+
+.player-position {
+  color: #ccc;
+  font-size: 0.9rem;
+}
+
+.current-indicator {
+  background: #4CAF50;
+  color: #fff;
+  padding: 4px 8px;
+  border-radius: 4px;
+  font-size: 0.8rem;
+  font-weight: 600;
+}
+
+.no-players {
+  color: #666;
+  text-align: center;
+  padding: 20px;
+  font-style: italic;
+} 

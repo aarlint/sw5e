@@ -1,6 +1,18 @@
 # SW5e Character Sheet with Party System
 
-A Star Wars 5th Edition character sheet application with real-time party synchronization using React and Cloudflare Workers with KV storage.
+A Star Wars 5th Edition character sheet application with real-time party synchronization using React and Cloudflare Workers with KV storage. Features Google OAuth SSO for user authentication and tracking.
+
+## Features
+
+- **Complete Character Management**: Create and manage SW5e characters with all stats, skills, weapons, and resources
+- **Real-time Party System**: Join or create parties with 5-digit codes to share character status in real-time
+- **Google OAuth SSO**: Secure authentication with Google accounts
+- **User Tracking**: Monitor user activity, characters created, and games played
+- **Admin Dashboard**: View user statistics and activity
+- **Health Tracking**: Visual health bars and status indicators for all party members
+- **Death Save Tracking**: Real-time death save status for unconscious characters
+- **Offline Detection**: See when party members go offline
+- **Mobile Responsive**: Works on desktop and mobile devices
 
 ## Features
 
@@ -10,6 +22,33 @@ A Star Wars 5th Edition character sheet application with real-time party synchro
 - **Death Save Tracking**: Real-time death save status for unconscious characters
 - **Offline Detection**: See when party members go offline
 - **Mobile Responsive**: Works on desktop and mobile devices
+
+## Google OAuth Setup
+
+### 1. Create Google OAuth Credentials
+
+1. Go to [Google Cloud Console](https://console.cloud.google.com/)
+2. Create a new project or select an existing one
+3. Enable the Google+ API
+4. Go to "Credentials" → "Create Credentials" → "OAuth 2.0 Client IDs"
+5. Set up the OAuth consent screen
+6. Create a Web application client ID
+7. Add `http://localhost:3000` to authorized JavaScript origins
+8. Add `http://localhost:3000/auth/callback` to authorized redirect URIs
+
+### 2. Configure Environment Variables
+
+1. Copy `env.example` to `.env.local`:
+   ```bash
+   cp env.example .env.local
+   ```
+
+2. Edit `.env.local` and add your Google Client ID:
+   ```
+   REACT_APP_GOOGLE_CLIENT_ID=your_google_client_id_here
+   ```
+
+3. Restart your development server
 
 ## Party System Setup
 

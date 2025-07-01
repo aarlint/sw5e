@@ -1,0 +1,279 @@
+.game-map-container {
+  height: 100vh;
+  display: flex;
+  flex-direction: column;
+  background: #0a0a0a;
+}
+
+.game-header {
+  background: #1a1a1a;
+  padding: 15px 20px;
+  border-bottom: 1px solid #333;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-shrink: 0;
+}
+
+.game-info {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.game-stats {
+  display: flex;
+  gap: 15px;
+  font-size: 0.9rem;
+}
+
+.stat {
+  color: #ccc;
+  background: #333;
+  padding: 4px 8px;
+  border-radius: 4px;
+  font-weight: 500;
+}
+
+.game-header h2 {
+  color: #ffd700;
+  margin: 0;
+  font-size: 1.5rem;
+}
+
+.game-controls {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+}
+
+.game-content {
+  display: flex;
+  flex: 1;
+  overflow: hidden;
+}
+
+.map-section {
+  flex: 1;
+  padding: 20px;
+  overflow: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.map-legend {
+  display: flex;
+  gap: 20px;
+  padding: 10px;
+  background: #1a1a1a;
+  border-radius: 6px;
+  border: 1px solid #333;
+  flex-shrink: 0;
+}
+
+.legend-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: #ccc;
+  font-size: 0.9rem;
+}
+
+.legend-icon {
+  font-size: 1.2rem;
+}
+
+.map-container {
+  background: #1a1a1a;
+  border-radius: 8px;
+  border: 1px solid #333;
+  overflow: auto;
+  max-width: 100%;
+  max-height: 100%;
+}
+
+.map-grid {
+  display: grid;
+  grid-template-columns: repeat(50, 12px);
+  grid-template-rows: repeat(50, 12px);
+  gap: 1px;
+  padding: 10px;
+  background: #2a2a2a;
+  border-radius: 6px;
+}
+
+.map-cell {
+  width: 12px;
+  height: 12px;
+  background: #3a3a3a;
+  border: 1px solid #444;
+  cursor: pointer;
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s ease;
+}
+
+.map-cell:hover {
+  background: #4a4a4a;
+  border-color: #ffd700;
+}
+
+.map-cell.has-terrain {
+  background: #2a4a2a;
+  border-color: #4a8a4a;
+}
+
+.map-cell.has-player {
+  background: #2a2a4a;
+  border-color: #4a4a8a;
+}
+
+.map-cell.has-enemy {
+  background: #4a2a2a;
+  border-color: #8a4a4a;
+}
+
+.map-cell.selected {
+  background: #ffd700;
+  border-color: #ffed4e;
+}
+
+.terrain {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  z-index: 2;
+}
+
+.player-token,
+.enemy-token {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  z-index: 3;
+  font-size: 8px;
+  cursor: grab;
+  user-select: none;
+}
+
+.player-token.current-player {
+  color: #4CAF50;
+  text-shadow: 0 0 2px #4CAF50;
+}
+
+.enemy-token {
+  color: #ff6b6b;
+  text-shadow: 0 0 2px #ff6b6b;
+}
+
+.sidebar {
+  width: 300px;
+  background: #1a1a1a;
+  border-left: 1px solid #333;
+  padding: 20px;
+  overflow-y: auto;
+  flex-shrink: 0;
+}
+
+.btn {
+  padding: 8px 16px;
+  border: none;
+  border-radius: 4px;
+  font-size: 0.9rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+.btn-primary {
+  background: #ffd700;
+  color: #1a1a1a;
+}
+
+.btn-primary:hover:not(:disabled) {
+  background: #ffed4e;
+  transform: translateY(-1px);
+}
+
+.btn-secondary {
+  background: #444;
+  color: #fff;
+}
+
+.btn-secondary:hover {
+  background: #555;
+  transform: translateY(-1px);
+}
+
+.btn-active {
+  background: #4CAF50;
+  color: #fff;
+}
+
+.btn-active:hover {
+  background: #5CBF60;
+}
+
+/* Responsive design */
+@media (max-width: 1200px) {
+  .sidebar {
+    width: 250px;
+  }
+  
+  .map-grid {
+    grid-template-columns: repeat(50, 8px);
+    grid-template-rows: repeat(50, 8px);
+  }
+  
+  .map-cell {
+    width: 8px;
+    height: 8px;
+  }
+  
+  .player-token,
+  .enemy-token {
+    font-size: 6px;
+  }
+}
+
+@media (max-width: 768px) {
+  .game-header {
+    flex-direction: column;
+    gap: 10px;
+    align-items: stretch;
+  }
+  
+  .game-controls {
+    justify-content: center;
+  }
+  
+  .game-content {
+    flex-direction: column;
+  }
+  
+  .sidebar {
+    width: 100%;
+    border-left: none;
+    border-top: 1px solid #333;
+  }
+  
+  .map-grid {
+    grid-template-columns: repeat(50, 6px);
+    grid-template-rows: repeat(50, 6px);
+  }
+  
+  .map-cell {
+    width: 6px;
+    height: 6px;
+  }
+  
+  .player-token,
+  .enemy-token {
+    font-size: 4px;
+  }
+} 

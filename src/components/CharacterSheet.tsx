@@ -1,11 +1,15 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect } from 'react';
+import { useParams } from 'react-router-dom';
 import './CharacterSheet.css';
 import DiceRollPopup from './DiceRollPopup';
-import PartyManager from './PartyManager';
-import partyService from '../services/partyService';
+// Party system removed - now handled by game system
+import { generateShortUUID } from '../utils/uuid';
+import { useAuth } from '../contexts/AuthContext';
+import WorkerService from '../services/workerService';
 
 interface CharacterData {
   id: string;
+  shortId?: string; // Short UUID for URL identification (optional for backward compatibility)
   name: string;
   level: number;
   class: string;
@@ -160,8 +164,12 @@ const calculateMaxHP = (level: number, className: string, constitution: number):
 };
 
 const CharacterSheet: React.FC = () => {
+  const { characterId } = useParams<{ characterId?: string }>();
+  const { user } = useAuth();
+  const workerService = WorkerService.getInstance();
   const [character, setCharacter] = useState<CharacterData>({
     id: '',
+    shortId: '',
     name: '',
     level: 1,
     class: '',
@@ -283,44 +291,65 @@ const CharacterSheet: React.FC = () => {
     }
   }, [character.id]);
 
-  // Load character data from localStorage on component mount
+  // Load character data from backend on component mount
   useEffect(() => {
-    const savedCharacter = localStorage.getItem('starWarsCharacter');
-    if (savedCharacter) {
-      const loadedCharacter = JSON.parse(savedCharacter);
-      
+    const loadCharacter = async () => {
+      let characterToLoad = null;
+    
+    // If we have a character ID in the URL, try to find that character
+    if (characterId && user?.id) {
+      try {
+        // Get from worker service
+        const userCharacters = await workerService.getUserCharacters(user.id);
+        characterToLoad = userCharacters.find((char: any) => 
+          (char as any).shortId === characterId
+        );
+        
+        if (!characterToLoad) {
+          alert('Character not found. Please check the URL or create a new character.');
+          return;
+        }
+      } catch (error) {
+        console.error('Error loading character from worker:', error);
+        alert('Failed to load character. Please try again.');
+        return;
+      }
+    }
+    
+    if (characterToLoad) {
       // Ensure all required fields exist with default values for backward compatibility
       const characterWithDefaults = {
-        id: loadedCharacter.id || 'char_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9),
-        name: loadedCharacter.name || '',
-        level: loadedCharacter.level || 1,
-        class: loadedCharacter.class || '',
-        background: loadedCharacter.background || '',
-        species: loadedCharacter.species || '',
-        alignment: loadedCharacter.alignment || '',
-        experiencePoints: loadedCharacter.experiencePoints || 0,
-        strength: loadedCharacter.strength || 10,
-        dexterity: loadedCharacter.dexterity || 10,
-        constitution: loadedCharacter.constitution || 10,
-        intelligence: loadedCharacter.intelligence || 10,
-        wisdom: loadedCharacter.wisdom || 10,
-        charisma: loadedCharacter.charisma || 10,
-        armorClass: loadedCharacter.armorClass || 10,
-        initiative: loadedCharacter.initiative || 0,
-        speed: loadedCharacter.speed || 30,
+        id: characterToLoad.id || 'char_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9),
+        shortId: (characterToLoad as any).shortId || generateShortUUID(),
+        name: characterToLoad.name || '',
+        level: characterToLoad.level || 1,
+        class: characterToLoad.class || '',
+        background: characterToLoad.background || '',
+        species: characterToLoad.species || '',
+        alignment: characterToLoad.alignment || '',
+        experiencePoints: characterToLoad.experiencePoints || 0,
+        strength: characterToLoad.strength || 10,
+        dexterity: characterToLoad.dexterity || 10,
+        constitution: characterToLoad.constitution || 10,
+        intelligence: characterToLoad.intelligence || 10,
+        wisdom: characterToLoad.wisdom || 10,
+        charisma: characterToLoad.charisma || 10,
+        armorClass: characterToLoad.armorClass || 10,
+        initiative: characterToLoad.initiative || 0,
+        speed: characterToLoad.speed || 30,
         hitPoints: {
-          maximum: loadedCharacter.hitPoints?.maximum || calculateMaxHP(loadedCharacter.level || 1, loadedCharacter.class || '', loadedCharacter.constitution || 10),
-          current: loadedCharacter.hitPoints?.current || calculateMaxHP(loadedCharacter.level || 1, loadedCharacter.class || '', loadedCharacter.constitution || 10),
-          temporary: loadedCharacter.hitPoints?.temporary || 0
+          maximum: characterToLoad.hitPoints?.maximum || calculateMaxHP(characterToLoad.level || 1, characterToLoad.class || '', characterToLoad.constitution || 10),
+          current: characterToLoad.hitPoints?.current || calculateMaxHP(characterToLoad.level || 1, characterToLoad.class || '', characterToLoad.constitution || 10),
+          temporary: characterToLoad.hitPoints?.temporary || 0
         },
-        hitDice: calculateHitDice(loadedCharacter.level || 1, loadedCharacter.class || ''),
-        hitDiceTotal: calculateHitDice(loadedCharacter.level || 1, loadedCharacter.class || ''),
+        hitDice: calculateHitDice(characterToLoad.level || 1, characterToLoad.class || ''),
+        hitDiceTotal: calculateHitDice(characterToLoad.level || 1, characterToLoad.class || ''),
         deathSaves: {
-          successes: loadedCharacter.deathSaves?.successes || 0,
-          failures: loadedCharacter.deathSaves?.failures || 0
+          successes: characterToLoad.deathSaves?.successes || 0,
+          failures: characterToLoad.deathSaves?.failures || 0
         },
-        weapons: loadedCharacter.weapons || [],
-        skills: loadedCharacter.skills || [
+        weapons: characterToLoad.weapons || [],
+        skills: characterToLoad.skills || [
           { name: 'Acrobatics', ability: 'dexterity', proficient: false, bonus: 0 },
           { name: 'Athletics', ability: 'strength', proficient: false, bonus: 0 },
           { name: 'Deception', ability: 'charisma', proficient: false, bonus: 0 },
@@ -335,63 +364,46 @@ const CharacterSheet: React.FC = () => {
           { name: 'Survival', ability: 'wisdom', proficient: false, bonus: 0 }
         ],
         proficiencies: {
-          armor: loadedCharacter.proficiencies?.armor || '',
-          weapons: loadedCharacter.proficiencies?.weapons || '',
-          tools: loadedCharacter.proficiencies?.tools || '',
-          languages: loadedCharacter.proficiencies?.languages || ''
+          armor: characterToLoad.proficiencies?.armor || '',
+          weapons: characterToLoad.proficiencies?.weapons || '',
+          tools: characterToLoad.proficiencies?.tools || '',
+          languages: characterToLoad.proficiencies?.languages || ''
         },
-        features: loadedCharacter.features || '',
-        credits: loadedCharacter.credits || 0,
-        forcePoints: loadedCharacter.forcePoints || 0,
-        techPoints: loadedCharacter.techPoints || 0,
-        exhaustion: loadedCharacter.exhaustion || 0,
-        equipment: loadedCharacter.equipment || '',
+        features: characterToLoad.features || '',
+        credits: characterToLoad.credits || 0,
+        forcePoints: characterToLoad.forcePoints || 0,
+        techPoints: characterToLoad.techPoints || 0,
+        exhaustion: characterToLoad.exhaustion || 0,
+        equipment: characterToLoad.equipment || '',
         personality: {
-          traits: loadedCharacter.personality?.traits || '',
-          ideals: loadedCharacter.personality?.ideals || '',
-          bonds: loadedCharacter.personality?.bonds || '',
-          flaws: loadedCharacter.personality?.flaws || ''
+          traits: characterToLoad.personality?.traits || '',
+          ideals: characterToLoad.personality?.ideals || '',
+          bonds: characterToLoad.personality?.bonds || '',
+          flaws: characterToLoad.personality?.flaws || ''
         },
-        notes: loadedCharacter.notes || '',
-        createdAt: loadedCharacter.createdAt || new Date().toISOString(),
-        lastModified: loadedCharacter.lastModified || new Date().toISOString()
+        notes: characterToLoad.notes || '',
+        createdAt: characterToLoad.createdAt || new Date().toISOString(),
+        lastModified: characterToLoad.lastModified || new Date().toISOString()
       };
       
       setCharacter(characterWithDefaults);
     }
-  }, []);
+    };
 
-  // Save character data to localStorage and update characters list whenever it changes
+    loadCharacter();
+  }, [characterId, user?.id, workerService]);
+
+  // Save character data to worker service whenever it changes
   useEffect(() => {
-    if (character.id) {
-      localStorage.setItem('starWarsCharacter', JSON.stringify(character));
-      
-      // Update the character in the characters list
-      const savedCharacters = localStorage.getItem('starWarsCharacters');
-      if (savedCharacters) {
-        const characters = JSON.parse(savedCharacters);
-        const updatedCharacters = characters.map((char: CharacterData) => 
-          char.id === character.id ? { ...character, lastModified: new Date().toISOString() } : char
-        );
-        localStorage.setItem('starWarsCharacters', JSON.stringify(updatedCharacters));
-      }
-    }
-  }, [character]);
-
-  // Debounced party updates to avoid too many rapid messages
-  useEffect(() => {
-    if (!character.id) return;
-
-    const timeout = setTimeout(() => {
-      // Send the complete character data to the party system
-      partyService.updateCharacter(character).catch(error => {
-        // Silently fail if partyService is not available (e.g., if not in a party)
-        console.debug('Party service not available for character update:', error);
+    if (character.id && user?.id) {
+      // Save to worker service
+      workerService.saveCharacter(character, user.id).catch(error => {
+        console.error('Error saving character to worker:', error);
       });
-    }, 300); // 300ms debounce
+    }
+  }, [character, user?.id, workerService]);
 
-    return () => clearTimeout(timeout);
-  }, [character]); // Watch the entire character object for changes
+  // Party system removed - now handled by game system
 
   const getAbilityModifier = (score: number): number => {
     return Math.floor((score - 10) / 2);
@@ -769,66 +781,10 @@ const CharacterSheet: React.FC = () => {
     closeDieSelector();
   };
 
-  // Convert character to format expected by party service
-  const getPartyCharacterData = useMemo(() => ({
-    id: character.id,
-    name: character.name,
-    level: character.level,
-    class: character.class,
-    background: character.background,
-    species: character.species,
-    alignment: character.alignment,
-    experiencePoints: character.experiencePoints,
-    strength: character.strength,
-    dexterity: character.dexterity,
-    constitution: character.constitution,
-    intelligence: character.intelligence,
-    wisdom: character.wisdom,
-    charisma: character.charisma,
-    armorClass: character.armorClass,
-    initiative: character.initiative,
-    speed: character.speed,
-    hitPoints: character.hitPoints,
-    hitDice: character.hitDice,
-    hitDiceTotal: character.hitDiceTotal,
-    deathSaves: character.deathSaves,
-    weapons: character.weapons,
-    skills: character.skills,
-    proficiencies: character.proficiencies,
-    features: character.features,
-    credits: character.credits,
-    forcePoints: character.forcePoints,
-    techPoints: character.techPoints,
-    exhaustion: character.exhaustion,
-    equipment: character.equipment,
-    personality: character.personality,
-    notes: character.notes,
-    createdAt: character.createdAt,
-    lastModified: character.lastModified,
-    initiativeRoll: character.initiativeRoll
-  }), [
-    character.id, character.name, character.level, character.class, character.background,
-    character.species, character.alignment, character.experiencePoints, character.strength,
-    character.dexterity, character.constitution, character.intelligence, character.wisdom,
-    character.charisma, character.armorClass, character.initiative, character.speed,
-    character.hitPoints, character.hitDice, character.hitDiceTotal, character.deathSaves,
-    character.weapons, character.skills, character.proficiencies, character.features,
-    character.credits, character.forcePoints, character.techPoints, character.exhaustion,
-    character.equipment, character.personality, character.notes, character.createdAt,
-    character.lastModified, character.initiativeRoll
-  ]);
+  // Party system removed - now handled by game system
 
   return (
     <div className="character-sheet">
-      {/* Party Manager */}
-      <PartyManager 
-        currentCharacter={getPartyCharacterData}
-        onCharacterUpdate={(updatedCharacter) => {
-          // This callback can be used if we need to sync changes from party back to character
-          // For now, the party system is read-only display of character data
-        }}
-      />
-
       <div className="sheet-container">
         {/* Header Section */}
         <section className="header-section">

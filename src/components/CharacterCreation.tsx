@@ -65,6 +65,8 @@ const CharacterCreation: React.FC<CharacterCreationProps> = ({ onCharacterCreate
     features: '',
     credits: 0,
     forcePoints: 0,
+    techPoints: 0,
+    exhaustion: 0,
     equipment: '',
     personality: {
       traits: '',
@@ -153,6 +155,7 @@ const CharacterCreation: React.FC<CharacterCreationProps> = ({ onCharacterCreate
       }
     };
 
+    console.log('CharacterCreation: Sending character data:', finalCharacterData);
     onCharacterCreated(finalCharacterData);
   };
 
@@ -179,12 +182,15 @@ const CharacterCreation: React.FC<CharacterCreationProps> = ({ onCharacterCreate
             onChange={(e) => updateCharacterData({ class: e.target.value })}
           >
             <option value="">Select a class</option>
-            <option value="Guardian">Guardian</option>
+            <option value="Beserker">Beserker</option>
             <option value="Consular">Consular</option>
+            <option value="Engineer">Engineer</option>
+            <option value="Fighter">Fighter</option>
+            <option value="Gaurdian">Gaurdian</option>
+            <option value="Monk">Monk</option>
+            <option value="Operative">Operative</option>
             <option value="Sentinel">Sentinel</option>
             <option value="Scout">Scout</option>
-            <option value="Scoundrel">Scoundrel</option>
-            <option value="Soldier">Soldier</option>
           </select>
         </div>
         <div className="form-group">
@@ -202,6 +208,14 @@ const CharacterCreation: React.FC<CharacterCreationProps> = ({ onCharacterCreate
             <option value="Mirialan">Mirialan</option>
             <option value="Kel Dor">Kel Dor</option>
             <option value="Droid">Droid</option>
+            <option value="Gungan">Gungan</option>
+            <option value="Jawa">Jawa</option>
+            <option value="Mon Calamari">Mon Calamari</option>
+            <option value="Rodian">Rodian</option>
+            <option value="Sullustan">Sullustan</option>
+            <option value="Togruta">Togruta</option>
+            <option value="Zabrak">Zabrak</option>
+            <option value="Zeb">Zeb</option>
           </select>
         </div>
         <div className="form-group">
@@ -211,18 +225,67 @@ const CharacterCreation: React.FC<CharacterCreationProps> = ({ onCharacterCreate
             onChange={(e) => updateCharacterData({ background: e.target.value })}
           >
             <option value="">Select a background</option>
-            <option value="Ace Pilot">Ace Pilot</option>
-            <option value="Bounty Hunter">Bounty Hunter</option>
-            <option value="Criminal">Criminal</option>
+            <option value="Dathomir Witch">Dathomir Witch</option>
+            <option value="Outlaw">Outlaw</option>
+            <option value="Gladiator">Gladiator</option>
+            <option value="Companion">Companion</option>
             <option value="Entertainer">Entertainer</option>
-            <option value="Gambler">Gambler</option>
-            <option value="Guard">Guard</option>
+            <option value="Nomad">Nomad</option>
+            <option value="Folk Hero">Folk Hero</option>
+            <option value="Barbarian">Barbarian</option>
+            <option value="Laborer">Laborer</option>
             <option value="Hermit">Hermit</option>
-            <option value="Noble">Noble</option>
-            <option value="Outlander">Outlander</option>
-            <option value="Sage">Sage</option>
+            <option value="Farmer">Farmer</option>
+            <option value="Racer">Racer</option>
+            <option value="Pirate">Pirate</option>
+            <option value="Bodyguard">Bodyguard</option>
+            <option value="City Watch">City Watch</option>
+            <option value="(Un)Retired Adventurer">(Un)Retired Adventurer</option>
+            <option value="Faction Artisan">Faction Artisan</option>
+            <option value="Imperial Knight">Imperial Knight</option>
             <option value="Soldier">Soldier</option>
-            <option value="Spy">Spy</option>
+            <option value="Mandalorian">Mandalorian</option>
+            <option value="Faction Adventurer">Faction Adventurer</option>
+            <option value="Mercenary">Mercenary</option>
+            <option value="Clone">Clone</option>
+            <option value="Clone Trooper">Clone Trooper</option>
+            <option value="Independent Droid">Independent Droid</option>
+            <option value="Sith">Sith</option>
+            <option value="Crime Lord">Crime Lord</option>
+            <option value="Gambler">Gambler</option>
+            <option value="Amnesiac">Amnesiac</option>
+            <option value="Noble">Noble</option>
+            <option value="Force Adept">Force Adept</option>
+            <option value="Faction Merchant">Faction Merchant</option>
+            <option value="Scoundrel">Scoundrel</option>
+            <option value="Courtier">Courtier</option>
+            <option value="Bounty Hunter">Bounty Hunter</option>
+            <option value="Urchin">Urchin</option>
+            <option value="Ex-Cultist">Ex-Cultist</option>
+            <option value="Politician">Politician</option>
+            <option value="Criminal">Criminal</option>
+            <option value="Agent">Agent</option>
+            <option value="Addict">Addict</option>
+            <option value="Smuggler">Smuggler</option>
+            <option value="Jensaarai">Jensaarai</option>
+            <option value="Bartender">Bartender</option>
+            <option value="Office Worker">Office Worker</option>
+            <option value="Jedi">Jedi</option>
+            <option value="Blackguard">Blackguard</option>
+            <option value="Far Traveler">Far Traveler</option>
+            <option value="Investigator">Investigator</option>
+            <option value="Lawyer">Lawyer</option>
+            <option value="Spacer">Spacer</option>
+            <option value="Holonet Technician">Holonet Technician</option>
+            <option value="Student">Student</option>
+            <option value="Servant">Servant</option>
+            <option value="Jizz Wailer">Jizz Wailer</option>
+            <option value="Insurgent">Insurgent</option>
+            <option value="Archaeologist">Archaeologist</option>
+            <option value="Survivor">Survivor</option>
+            <option value="Scientist">Scientist</option>
+            <option value="Teacher">Teacher</option>
+            <option value="Scavenger">Scavenger</option>
           </select>
         </div>
         <div className="form-group">
