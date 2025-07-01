@@ -205,8 +205,8 @@ class WorkerService {
       return null;
     } catch (error) {
       console.error('Error getting character:', error);
+      return null;
     }
-    return null;
   }
 
   async getUserCharacters(userId: string): Promise<CharacterData[]> {

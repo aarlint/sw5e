@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useCallback } from 'react';
 import './GameManagement.css';
 import WorkerService from '../services/workerService';
 import { Game } from '../types/game';
@@ -24,7 +24,7 @@ const GameManagement: React.FC<GameManagementProps> = ({ onGameJoined, onNavigat
   const workerService = WorkerService.getInstance();
 
   // Load games in progress
-  const loadGamesInProgress = async () => {
+  const loadGamesInProgress = useCallback(async () => {
     setLoadingGames(true);
     try {
       const games = await workerService.getGames();
@@ -34,7 +34,7 @@ const GameManagement: React.FC<GameManagementProps> = ({ onGameJoined, onNavigat
     } finally {
       setLoadingGames(false);
     }
-  };
+  }, [workerService]);
 
   // Load games when switching to games tab
   React.useEffect(() => {
