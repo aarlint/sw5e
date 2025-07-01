@@ -595,15 +595,40 @@ async function handleWebSocketMessage(webSocket: WebSocket, message: WebSocketMe
       }
 
       try {
-        const user: User = {
-          ...message.user,
-          lastSeen: Date.now(),
-          gamesPlayed: message.user.gamesPlayed || [],
-          charactersCreated: message.user.charactersCreated || []
-        };
+        // Get existing user data or create new user
+        const existingUserDataStr = await env.PARTY_STORAGE.get(`user:${message.user.id}`);
+        let user: User;
+        
+        if (existingUserDataStr) {
+          // Update existing user
+          user = JSON.parse(existingUserDataStr);
+          user.email = message.user.email;
+          user.name = message.user.name;
+          user.picture = message.user.picture;
+          user.lastSeen = Date.now();
+        } else {
+          // Create new user
+          user = {
+            id: message.user.id,
+            email: message.user.email,
+            name: message.user.name,
+            picture: message.user.picture,
+            lastSeen: Date.now(),
+            gamesPlayed: [],
+            charactersCreated: []
+          };
+        }
 
-        await env.PARTY_STORAGE.put(`user:${user.id}`, JSON.stringify(user));
-        console.log(`User logged in: ${user.email}`);
+        // Save user data
+        await env.PARTY_STORAGE.put(`user:${message.user.id}`, JSON.stringify(user));
+
+        console.log(`User logged in: ${message.user.name} (${message.user.id})`);
+        
+        // Send success response
+        webSocket.send(JSON.stringify({ 
+          type: 'user_logged_in', 
+          user 
+        }));
       } catch (error) {
         console.error('Error logging in user:', error);
         webSocket.send(JSON.stringify({ type: 'error', error: 'Failed to log in user' }));
