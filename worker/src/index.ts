@@ -186,7 +186,7 @@ export interface GameState {
 interface WebSocketMessage {
   type: 'game_create' | 'game_join' | 'game_update' | 'game_leave' | 'player_move' | 
         'enemy_add' | 'enemy_move' | 'terrain_add' | 'terrain_remove' | 'user_login' | 
-        'character_save' | 'get_user_characters' | 'character_delete' | 'get_games' | 'character_deleted' | 'character_saved';
+        'character_save' | 'get_user_characters' | 'character_delete' | 'get_games' | 'character_deleted' | 'character_saved' | 'get_character';
   gameCode?: string;
   gameData?: Game;
   playerId?: string;
@@ -750,6 +750,25 @@ async function handleWebSocketMessage(webSocket: WebSocket, message: WebSocketMe
       } catch (error) {
         console.error('Error getting games:', error);
         webSocket.send(JSON.stringify({ type: 'error', error: 'Failed to get games' }));
+      }
+      break;
+
+    case 'get_character':
+      if (!message.characterId) {
+        webSocket.send(JSON.stringify({ type: 'error', error: 'Missing character ID' }));
+        return;
+      }
+      try {
+        const characterDataStr = await env.PARTY_STORAGE.get(`character:${message.characterId}`);
+        if (!characterDataStr) {
+          webSocket.send(JSON.stringify({ type: 'error', error: 'Character not found' }));
+          return;
+        }
+        const character = JSON.parse(characterDataStr);
+        webSocket.send(JSON.stringify({ type: 'character_data', character }));
+      } catch (error) {
+        console.error('Error getting character:', error);
+        webSocket.send(JSON.stringify({ type: 'error', error: 'Failed to get character' }));
       }
       break;
 

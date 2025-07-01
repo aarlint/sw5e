@@ -200,9 +200,15 @@ class WorkerService {
 
   async getCharacter(characterId: string): Promise<CharacterData | null> {
     try {
-      // For now, we'll need to implement this in the worker
-      // This is a placeholder
-      return null;
+      const response = await this.sendWebSocketMessage({
+        type: 'get_character',
+        characterId
+      });
+      if (response.type === 'character_data') {
+        return response.character;
+      } else {
+        return null;
+      }
     } catch (error) {
       console.error('Error getting character:', error);
       return null;
