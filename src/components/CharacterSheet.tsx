@@ -497,6 +497,27 @@ const CharacterSheet: React.FC = () => {
     }
   };
 
+  const rollDamageWithCrit = (weapon: Weapon) => {
+    // For critical damage, we'll roll the damage dice twice (like a crit in D&D/Star Wars 5e)
+    const damageMatch = weapon.damage.match(/(\d+)d(\d+)/);
+    if (damageMatch) {
+      const numDice = parseInt(damageMatch[1]);
+      const dieSize = parseInt(damageMatch[2]);
+      const critNotation = `${numDice * 2}d${dieSize}`; // Roll twice as many dice for crit
+      
+      setDicePopup({
+        isOpen: true,
+        title: `${weapon.name} Critical Damage`,
+        diceNotation: critNotation,
+        modifiers: 0,
+        onRollComplete: handleRollComplete
+      });
+    } else {
+      // Fallback to regular damage if notation is invalid
+      rollDamage(weapon);
+    }
+  };
+
   const handleRollComplete = (result: number) => {
     // The popup handles rolling automatically, so we don't need to do anything here
     // The result is already displayed in the popup
@@ -1342,28 +1363,40 @@ const CharacterSheet: React.FC = () => {
                       className="roll-btn"
                       title={`Roll ${weapon.name} attack`}
                     >
-                      🎲
+                      <span className="btn-icon">🎲</span>
+                      <span className="btn-label">Attack</span>
                     </button>
                     <button 
                       onClick={() => rollAttackWithAdvantage(weapon)}
                       className="roll-btn"
                       title={`Roll ${weapon.name} attack (Advantage)`}
                     >
-                      🎲🎲
+                      <span className="btn-icon">🎲🎲</span>
+                      <span className="btn-label">Adv. Attack</span>
                     </button>
                     <button 
                       onClick={() => rollDamage(weapon)}
                       className="roll-btn"
                       title={`Roll ${weapon.name} damage`}
                     >
-                      ⚔️
+                      <span className="btn-icon">⚔️</span>
+                      <span className="btn-label">Damage</span>
                     </button>
                     <button 
                       onClick={() => rollDamageWithAdvantage(weapon)}
                       className="roll-btn"
                       title={`Roll ${weapon.name} damage (Advantage)`}
                     >
-                      ⚔️⚔️
+                      <span className="btn-icon">⚔️⚔️</span>
+                      <span className="btn-label">Adv. Damage</span>
+                    </button>
+                    <button 
+                      onClick={() => rollDamageWithCrit(weapon)}
+                      className="roll-btn"
+                      title={`Roll ${weapon.name} critical damage`}
+                    >
+                      <span className="btn-icon">💥</span>
+                      <span className="btn-label">Crit Damage</span>
                     </button>
                   </div>
                 </div>

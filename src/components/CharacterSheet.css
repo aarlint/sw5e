@@ -589,14 +589,48 @@ section h2 {
 
 .weapon-actions {
   display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 2px;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 4px;
+  margin-top: 8px;
 }
 
 .weapon-actions .roll-btn {
-  height: 16px;
-  font-size: 10px;
-  width: 18px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  height: 32px;
+  min-width: 60px;
+  font-size: 9px;
+  padding: 4px 6px;
+  background: #3a3a3a;
+  border: 1px solid #555;
+  color: #fff;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.weapon-actions .roll-btn:hover {
+  background: #4a4a4a;
+  border-color: #666;
+}
+
+.weapon-actions .roll-btn:active {
+  background: #2a2a2a;
+}
+
+.weapon-actions .roll-btn .btn-icon {
+  font-size: 12px;
+  line-height: 1;
+  margin-bottom: 2px;
+}
+
+.weapon-actions .roll-btn .btn-label {
+  font-size: 8px;
+  line-height: 1;
+  text-align: center;
+  font-weight: bold;
+  text-transform: uppercase;
 }
 
 /* Bottom Sections */
@@ -1210,7 +1244,24 @@ section h2 {
   }
   
   .weapon-actions {
-    grid-template-columns: 1fr;
+    grid-template-columns: repeat(5, 1fr);
+    gap: 2px;
+  }
+  
+  .weapon-actions .roll-btn {
+    height: 24px;
+    min-width: 50px;
+    font-size: 7px;
+    padding: 2px 4px;
+  }
+  
+  .weapon-actions .roll-btn .btn-icon {
+    font-size: 8px;
+    margin-bottom: 1px;
+  }
+  
+  .weapon-actions .roll-btn .btn-label {
+    font-size: 6px;
   }
   
   .personality-grid {
